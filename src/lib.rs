@@ -1,4 +1,7 @@
+pub mod camera;
 pub mod state;
+pub mod texture;
+pub mod camera_controller;
 
 use std::sync::Arc;
 
@@ -17,11 +20,11 @@ use winit::{
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 3],
-    color: [f32; 3],
+    tex_coords: [f32; 2],
 }
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -31,28 +34,18 @@ impl Vertex {
         }
     }
 }
-
- 
-
- 
+#[rustfmt::skip]
 const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.0868241, 0.49240386, 0.0], color: [1.0, 0.0, 0.5] }, // A
-    Vertex { position: [-0.49513406, 0.06958647, 0.0], color: [0.5, 1.0, 0.5] }, // B
-    Vertex { position: [-0.21918549, -0.44939706, 0.0], color: [0.5, 0.0, 1.0] }, // C
-    Vertex { position: [0.35966998, -0.3473291, 0.0], color: [0.5, 0.0, 1.0] }, // D
-    Vertex { position: [0.44147372, 0.2347359, 0.0], color: [0.5, 1.0, 0.5] }, // E
+    // Changed
+    Vertex { position: [-0.0868241,   0.49240386, 0.0],    tex_coords: [0.4131759,    0.00759614] }, // A
+    Vertex { position: [-0.49513406,  0.06958647, 0.0],    tex_coords: [0.0048659444, 0.43041354] }, // B
+    Vertex { position: [-0.21918549, -0.44939706, 0.0],    tex_coords: [0.28081453,   0.949397] }, // C
+    Vertex { position: [ 0.35966998, -0.3473291,  0.0],    tex_coords: [0.85967,      0.84732914] },    // D
+    Vertex { position: [ 0.44147372,  0.2347359,  0.0],    tex_coords: [0.9414737,    0.2652641] },    // E
 ];
 
-const INDICES: &[u16] = &[
-    0, 1, 4,
-    1, 2, 4,
-    2, 3, 4,
-];
+const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
- 
-
- 
- 
 enum UserEvent {
     StateReady(State),
 }
@@ -154,6 +147,17 @@ impl ApplicationHandler<UserEvent> for App {
             } => {
                 tracing::info!("Exited!");
                 event_loop.exit()
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state: ElementState::Pressed,
+                        physical_key: PhysicalKey::Code(KeyCode::Space),
+                        ..
+                    },
+                ..
+            } => {
+                // state.state_switch = !state.state_switch;
             }
             WindowEvent::Resized(physical_size) => {
                 state.surface_configured = true;
