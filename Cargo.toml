@@ -12,6 +12,7 @@ wgpu = "22.0"
 bytemuck = { version = "1.19.0", features = ["derive"] }
 image = { version = "0.25.4", default-features = false ,features = ["png", "jpeg"]}
 cgmath = "0.18.0"
+tracing-appender = "0.2.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pollster = "0.3"

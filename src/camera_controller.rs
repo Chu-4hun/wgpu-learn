@@ -93,38 +93,38 @@ impl CameraController {
         }
     }
 
-    pub fn update_camera(&self, camera: &mut Camera) {
+    pub fn update_camera(&self, camera: &mut Camera, delta_time: f32) {
         // Получаем основные векторы для навигации
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
         let right = forward_norm.cross(camera.up);
 
         if self.is_up_pressed {
-            camera.eye += camera.up * self.speed;
-            camera.target += camera.up * self.speed;
+            camera.eye += camera.up * self.speed * delta_time * 100.0;
+            camera.target += camera.up * self.speed * delta_time * 100.0;
         }
         if self.is_down_pressed {
-            camera.eye -= camera.up * self.speed;
-            camera.target -= camera.up * self.speed;
+            camera.eye -= camera.up * self.speed * delta_time * 100.0;
+            camera.target -= camera.up * self.speed * delta_time * 100.0;
         }
         // Движение вперед/назад
         if self.is_forward_pressed {
-            camera.eye += forward_norm * self.speed;
-            camera.target += forward_norm * self.speed;
+            camera.eye += forward_norm * self.speed * delta_time * 100.0;
+            camera.target += forward_norm * self.speed * delta_time * 100.0;
         }
         if self.is_backward_pressed {
-            camera.eye -= forward_norm * self.speed;
-            camera.target -= forward_norm * self.speed;
+            camera.eye -= forward_norm * self.speed * delta_time * 100.0;
+            camera.target -= forward_norm * self.speed * delta_time * 100.0;
         }
 
         // Движение влево/вправо
         if self.is_right_pressed {
-            camera.eye += right * self.speed;
-            camera.target += right * self.speed;
+            camera.eye += right * self.speed * delta_time * 100.0;
+            camera.target += right * self.speed * delta_time * 100.0;
         }
         if self.is_left_pressed {
-            camera.eye -= right * self.speed;
-            camera.target -= right * self.speed;
+            camera.eye -= right * self.speed * delta_time * 100.0;
+            camera.target -= right * self.speed * delta_time * 100.0;
         }
 
         // Поворот камеры

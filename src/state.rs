@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
 use image::GenericImageView;
@@ -305,8 +308,8 @@ impl State {
         self.camera_controller.process_events(event)
     }
 
-    pub fn update(&mut self) {
-        self.camera_controller.update_camera(&mut self.camera);
+    pub fn update(&mut self, delta_time: f32) {
+        self.camera_controller.update_camera(&mut self.camera,delta_time);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.camera_buffer,
@@ -316,6 +319,7 @@ impl State {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -362,7 +366,7 @@ impl State {
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
-
+        
         Ok(())
     }
 }
