@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod camera_controller;
+pub mod gui;
 pub mod state;
 pub mod texture;
 
@@ -7,7 +8,7 @@ use std::{sync::Arc, time::Instant};
 
 use anyhow::Result;
 use state::State;
-use tracing::{debug, info, Level};
+use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use winit::{
     application::ApplicationHandler,
@@ -16,6 +17,8 @@ use winit::{
     keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowId},
 };
+
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -143,10 +146,7 @@ impl ApplicationHandler<UserEvent> for App {
         let elapsed = (start - self.frame_time).as_secs_f32();
 
         self.frame_time = start;
-        info!(
-            "frame time {} s",
-            elapsed,
-        );
+        // info!("frame time {} s", elapsed,);
         match event {
             WindowEvent::CloseRequested
             | WindowEvent::KeyboardInput {
@@ -182,7 +182,7 @@ impl ApplicationHandler<UserEvent> for App {
                     return;
                 }
                 state.update(elapsed);
-                match state.render() {
+                match state.render(elapsed) {
                     Ok(()) => {}
                     // Reconfigure the surface if it's lost or outdated
                     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
@@ -202,6 +202,7 @@ impl ApplicationHandler<UserEvent> for App {
             }
             _ => {}
         }
+        state.egui.handle_input(&mut state.window, &event);
 
         self.delta_time = elapsed;
     }
@@ -231,7 +232,9 @@ pub fn run() -> Result<()> {
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let fmt_layer = tracing_subscriber::fmt::layer().with_line_number(true).with_level(true);
+        let fmt_layer = tracing_subscriber::fmt::layer()
+            .with_line_number(true)
+            .with_level(true);
         subscriber.with(fmt_layer).init();
     }
 

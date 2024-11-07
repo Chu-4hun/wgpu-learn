@@ -1,17 +1,18 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::
+    sync::Arc
+;
 
 use anyhow::Result;
-use image::GenericImageView;
+use egui_wgpu::ScreenDescriptor;
 use tracing::debug;
 use wgpu::{util::DeviceExt, Buffer, RenderPipeline};
+
 use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 
 use crate::{
     camera::{Camera, CameraUniform},
     camera_controller::CameraController,
+    gui::EguiRenderer,
     texture, Vertex, INDICES, VERTICES,
 };
 
@@ -31,7 +32,7 @@ pub struct State {
     num_indices: u32,
 
     diffuse_bind_group: wgpu::BindGroup,
-    diffuse_texture: texture::Texture,
+    _diffuse_texture: texture::Texture,
 
     camera: Camera,
     camera_uniform: CameraUniform,
@@ -39,6 +40,7 @@ pub struct State {
     camera_bind_group: wgpu::BindGroup,
 
     camera_controller: CameraController,
+    pub egui: EguiRenderer,
 }
 
 impl State {
@@ -271,6 +273,13 @@ impl State {
             cache: None,     // 6.
         });
 
+        let egui: EguiRenderer = EguiRenderer::new(
+            &device,       // wgpu Device
+            config.format, // TextureFormat
+            None,          // this can be None
+            1,             // samples
+            &window,       // winit Window
+        );
         let num_indices = INDICES.len() as u32;
         let camera_controller = CameraController::new(0.2);
         Self {
@@ -286,12 +295,13 @@ impl State {
             index_buffer,
             num_indices,
             diffuse_bind_group,
-            diffuse_texture,
+            _diffuse_texture: diffuse_texture,
             camera,
             camera_uniform,
             camera_buffer,
             camera_bind_group,
             camera_controller,
+            egui,
         }
     }
 
@@ -309,7 +319,8 @@ impl State {
     }
 
     pub fn update(&mut self, delta_time: f32) {
-        self.camera_controller.update_camera(&mut self.camera,delta_time);
+        self.camera_controller
+            .update_camera(&mut self.camera, delta_time);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.camera_buffer,
@@ -318,8 +329,7 @@ impl State {
         );
     }
 
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-
+    pub fn render(&mut self, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -363,10 +373,50 @@ impl State {
 
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
+        let screen_descriptor = ScreenDescriptor {
+            size_in_pixels: [self.config.width, self.config.height],
+            pixels_per_point: self.window().scale_factor() as f32,
+        };
+
+        self.egui.draw(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            &self.window,
+            &view,
+            screen_descriptor,
+            |ui| {
+                egui::Window::new("hello, im debug window 👋")
+                    // .vscroll(true)
+                    .title_bar(false)
+                    .default_open(true)
+                    .max_width(1000.0)
+                    .max_height(800.0)
+                    .default_width(800.0)
+                    .resizable(true)
+                    .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+                    .show(&ui, |ui| {
+                        ui.label(format!("FPS: {:.1}", 1.0 / delta_time));
+                        ui.label(format!("Frame Time: {:.2}ms", delta_time * 1000.0));
+                        // if ui.add(egui::Button::new("Click me")).clicked() {
+                        //     println!("PRESSED")
+                        // }
+
+                        ui.label(format!("Slider {}", egui::special_emojis::OS_LINUX));
+                        // ui.add(egui::Slider::new(_, 0..=120).text("age"));
+                        ui.end_row();
+
+                        // proto_scene.egui(ui);
+                    });
+            },
+        );
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
-        
+
         Ok(())
+    }
+    pub fn window(&self) -> &Window {
+        &self.window
     }
 }
