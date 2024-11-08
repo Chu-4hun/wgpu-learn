@@ -57,37 +57,37 @@ impl EguiRenderer {
     pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) {
         let _ = self.state.on_window_event(window, event);
     }
-
+    #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &mut self,
         device: &Device,
         queue: &Queue,
-        mut encoder: &mut CommandEncoder,
+        encoder: &mut CommandEncoder,
         window: &Window,
         window_surface_view: &TextureView,
         screen_descriptor: ScreenDescriptor,
-        mut run_ui: impl FnMut(&Context), // Changed to FnMut
+        run_ui: impl Fn(&Context), 
     ) {
         // self.state.set_pixels_per_point(window.scale_factor() as f32);
-        let raw_input = self.state.take_egui_input(&window);
+        let raw_input = self.state.take_egui_input(window);
         let ctx_ref = &self.context;
         let full_output = self.context.run(raw_input, |_| {
             run_ui(ctx_ref); // No longer moves `run_ui` since it's FnMut
         });
 
         self.state
-            .handle_platform_output(&window, full_output.platform_output);
+            .handle_platform_output(window, full_output.platform_output);
 
         let tris = self
             .context
             .tessellate(full_output.shapes, full_output.pixels_per_point);
         for (id, image_delta) in &full_output.textures_delta.set {
             self.renderer
-                .update_texture(&device, &queue, *id, &image_delta);
+                .update_texture(device, queue, *id, image_delta);
         }
         {
             self.renderer
-                .update_buffers(&device, &queue, &mut encoder, &tris, &screen_descriptor);
+                .update_buffers(device, queue, encoder, &tris, &screen_descriptor);
             let pass = wgpu::RenderPassDescriptor {
                 label: Some("egui main render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -124,7 +124,7 @@ pub fn gui(ui: &Context) {
         .default_width(800.0)
         .resizable(true)
         // .anchor(Align2::LEFT_TOP, [0.0, 0.0])
-        .show(&ui, |ui| {
+        .show(ui, |ui| {
             if ui.add(egui::Button::new("Click me")).clicked() {
                 println!("PRESSED")
             }

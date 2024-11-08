@@ -202,7 +202,7 @@ impl ApplicationHandler<UserEvent> for App {
             }
             _ => {}
         }
-        state.egui.handle_input(&mut state.window, &event);
+        state.egui.handle_input(&state.window, &event);
 
         self.delta_time = elapsed;
     }

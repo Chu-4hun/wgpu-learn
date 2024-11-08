@@ -395,14 +395,14 @@ impl State {
                     .default_width(800.0)
                     .resizable(true)
                     .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
-                    .show(&ui, |ui| {
+                    .show(ui, |ui| {
                         ui.label(format!("FPS: {:.1}", 1.0 / delta_time));
                         ui.label(format!("Frame Time: {:.2}ms", delta_time * 1000.0));
                         // if ui.add(egui::Button::new("Click me")).clicked() {
                         //     println!("PRESSED")
                         // }
 
-                        ui.label(format!("Slider {}", egui::special_emojis::OS_LINUX));
+                        // ui.label(format!("Slider {}", egui::special_emojis::OS_LINUX));
                         // ui.add(egui::Slider::new(_, 0..=120).text("age"));
                         ui.end_row();
 
