@@ -134,7 +134,7 @@ impl CameraController {
         if self.is_rotate_left_pressed {
             let rotation = cgmath::Matrix3::from_axis_angle(
                 Vector3::unit_y(),
-                cgmath::Rad(self.rotation_speed)
+                cgmath::Rad(self.rotation_speed* delta_time * 100.0)
             );
             let rotated_dir = rotation * target_dir;
             camera.target = camera.eye + rotated_dir * forward.magnitude();
@@ -142,7 +142,7 @@ impl CameraController {
         if self.is_rotate_right_pressed {
             let rotation = cgmath::Matrix3::from_axis_angle(
                 Vector3::unit_y(),
-                cgmath::Rad(-self.rotation_speed)
+                cgmath::Rad(-self.rotation_speed* delta_time * 100.0)
             );
             let rotated_dir = rotation * target_dir;
             camera.target = camera.eye + rotated_dir * forward.magnitude();

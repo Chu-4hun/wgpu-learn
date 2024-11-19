@@ -66,7 +66,7 @@ impl EguiRenderer {
         window: &Window,
         window_surface_view: &TextureView,
         screen_descriptor: ScreenDescriptor,
-        run_ui: impl Fn(&Context), 
+        mut run_ui: impl FnMut(&Context), 
     ) {
         // self.state.set_pixels_per_point(window.scale_factor() as f32);
         let raw_input = self.state.take_egui_input(window);

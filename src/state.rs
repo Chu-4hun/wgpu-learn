@@ -1,6 +1,4 @@
-use std::
-    sync::Arc
-;
+use std::sync::Arc;
 
 use anyhow::Result;
 use egui_wgpu::ScreenDescriptor;
@@ -41,6 +39,7 @@ pub struct State {
 
     camera_controller: CameraController,
     pub egui: EguiRenderer,
+    pub delay: f32,
 }
 
 impl State {
@@ -302,6 +301,7 @@ impl State {
             camera_bind_group,
             camera_controller,
             egui,
+            delay: 0.0,
         }
     }
 
@@ -377,7 +377,6 @@ impl State {
             size_in_pixels: [self.config.width, self.config.height],
             pixels_per_point: self.window().scale_factor() as f32,
         };
-
         self.egui.draw(
             &self.device,
             &self.queue,
@@ -398,6 +397,12 @@ impl State {
                     .show(ui, |ui| {
                         ui.label(format!("FPS: {:.1}", 1.0 / delta_time));
                         ui.label(format!("Frame Time: {:.2}ms", delta_time * 1000.0));
+                        if ui
+                            .add(egui::Slider::new(&mut self.delay, 0.0..=240.0).text("Max fps"))
+                            .changed()
+                        {
+                            println!("CHANGED {} {}", self.delay, 1.0 / self.delay);
+                        }
                         // if ui.add(egui::Button::new("Click me")).clicked() {
                         //     println!("PRESSED")
                         // }
@@ -410,6 +415,13 @@ impl State {
                     });
             },
         );
+        if self.delay > 0.0 {
+            // make frame cap from target fps
+            let target_frame_time = 1.0 / self.delay; // Time per frame in secondst screen_descriptor = ScreenDescriptor {
+            let delay = (target_frame_time - delta_time) * 1000.0; // Delay needed to achieve target FPSels: [self.config.width, self.config.height],
+
+            std::thread::sleep(std::time::Duration::from_millis(delay as u64));
+        };
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
