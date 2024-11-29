@@ -1,6 +1,7 @@
 pub mod camera;
 pub mod camera_controller;
 pub mod gui;
+pub mod instance;
 pub mod state;
 pub mod texture;
 
@@ -18,6 +19,12 @@ use winit::{
     window::{Window, WindowId},
 };
 
+const NUM_INSTANCES_PER_ROW: u32 = 10;
+const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+    0.0,
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+);
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -142,10 +149,6 @@ impl ApplicationHandler<UserEvent> for App {
             return;
         }
 
-        let start = Instant::now();
-        let elapsed = (start - self.frame_time).as_secs_f32();
-
-        self.frame_time = start;
         // info!("frame time {} s", elapsed,);
         match event {
             WindowEvent::CloseRequested
@@ -178,6 +181,9 @@ impl ApplicationHandler<UserEvent> for App {
                 // tracing::info!("physical_size: {physical_size:?}");
             }
             WindowEvent::RedrawRequested => {
+                let start = Instant::now();
+                let elapsed = (start - self.frame_time).as_secs_f32();
+
                 if !state.surface_configured {
                     return;
                 }
@@ -199,12 +205,14 @@ impl ApplicationHandler<UserEvent> for App {
                         tracing::warn!("Surface timeout");
                     }
                 }
+
+                self.frame_time = start;
+                self.delta_time = elapsed;
             }
             _ => {}
         }
         state.egui.handle_input(&state.window, &event);
 
-        self.delta_time = elapsed;
     }
 
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {

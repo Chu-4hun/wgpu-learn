@@ -78,11 +78,11 @@ impl CameraController {
                         self.is_rotate_down_pressed = is_pressed;
                         true
                     }
-                    KeyCode::ShiftLeft => {
+                    KeyCode::KeyE => {
                         self.is_up_pressed = is_pressed;
                         true
                     }
-                    KeyCode::ControlLeft => {
+                    KeyCode::KeyQ => {
                         self.is_down_pressed = is_pressed;
                         true
                     }

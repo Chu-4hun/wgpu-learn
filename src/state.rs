@@ -1,7 +1,7 @@
-use std::sync::Arc;
-
 use anyhow::Result;
+use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
+use std::sync::Arc;
 use tracing::debug;
 use wgpu::{util::DeviceExt, Buffer, RenderPipeline};
 
@@ -11,7 +11,8 @@ use crate::{
     camera::{Camera, CameraUniform},
     camera_controller::CameraController,
     gui::EguiRenderer,
-    texture, Vertex, INDICES, VERTICES,
+    instance::Instance,
+    texture, Vertex, INDICES, INSTANCE_DISPLACEMENT, NUM_INSTANCES_PER_ROW, VERTICES,
 };
 
 pub struct State {
@@ -40,6 +41,9 @@ pub struct State {
     camera_controller: CameraController,
     pub egui: EguiRenderer,
     pub delay: f32,
+
+    instances: Vec<Instance>,
+    instance_buffer: wgpu::Buffer,
 }
 
 impl State {
@@ -234,8 +238,8 @@ impl State {
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",     // 1.
-                buffers: &[Vertex::desc()], // 2.
+                entry_point: "vs_main",
+                buffers: &[Vertex::desc(), crate::instance::InstanceRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -281,6 +285,38 @@ impl State {
         );
         let num_indices = INDICES.len() as u32;
         let camera_controller = CameraController::new(0.2);
+
+        let instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let position = cgmath::Vector3 {
+                        x: x as f32,
+                        y: 0.0,
+                        z: z as f32,
+                    } - INSTANCE_DISPLACEMENT;
+
+                    let rotation = if position.is_zero() {
+                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
+                        // as Quaternions can affect scale if they're not created correctly
+                        cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(0.0),
+                        )
+                    } else {
+                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                    };
+
+                    Instance { position, rotation }
+                })
+            })
+            .collect::<Vec<_>>();
+        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
+
         Self {
             surface,
             device,
@@ -302,6 +338,8 @@ impl State {
             camera_controller,
             egui,
             delay: 0.0,
+            instance_buffer,
+            instances,
         }
     }
 
@@ -326,6 +364,23 @@ impl State {
             &self.camera_buffer,
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
+        );
+        let angle = cgmath::Rad(delta_time * 2.0);
+        let rotation_delta = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::new(0.0,0.0,1.0), angle);
+
+        for inst in &mut self.instances {
+            inst.rotation = inst.rotation * rotation_delta;
+        }
+        let instance_data = self
+            .instances
+            .iter()
+            .map(Instance::to_raw)
+            .collect::<Vec<_>>();
+
+        self.queue.write_buffer(
+            &self.instance_buffer,
+            0,
+            bytemuck::cast_slice(&instance_data),
         );
     }
 
@@ -363,15 +418,19 @@ impl State {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             };
+
             let mut render_pass = encoder.begin_render_pass(&render_pass_desc);
             render_pass.set_pipeline(&self.render_pipeline);
+
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
         }
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [self.config.width, self.config.height],
