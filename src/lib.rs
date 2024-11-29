@@ -173,7 +173,7 @@ impl ApplicationHandler<UserEvent> for App {
                     },
                 ..
             } => {
-                // state.state_switch = !state.state_switch;
+                state.draw_lines = !state.draw_lines;
             }
             WindowEvent::Resized(physical_size) => {
                 state.surface_configured = true;
