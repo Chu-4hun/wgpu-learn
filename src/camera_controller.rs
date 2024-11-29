@@ -1,14 +1,13 @@
+use crate::camera::Camera;
+use cgmath::{InnerSpace, Vector3};
 use winit::{
     event::{ElementState, KeyEvent, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
 };
-use cgmath::{InnerSpace, Vector3};
-use crate::camera::Camera;
 
 #[derive(Default)]
 pub struct CameraController {
     speed: f32,
-    rotation_speed: f32,
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
@@ -20,19 +19,37 @@ pub struct CameraController {
 
     is_down_pressed: bool,
     is_up_pressed: bool,
+
+    mouse_last_pos: (f32, f32),
+    mouse_delta: (f32, f32),
+    mouse_sensitivity: f32,
 }
 
 impl CameraController {
     pub fn new(speed: f32) -> Self {
         Self {
             speed,
-            rotation_speed: 0.05, // Скорость поворота в радианах
+            mouse_sensitivity: 0.002, // Скорость поворота в радианах
             ..Default::default()
         }
     }
 
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
+            WindowEvent::CursorMoved {
+                device_id: _,
+                position,
+            } => {
+                if self.mouse_last_pos.0 == 0.0 && self.mouse_last_pos.1 == 0.0 {
+                    self.mouse_last_pos = (position.x as f32, position.y as f32)
+                }
+                self.mouse_delta = (
+                    self.mouse_last_pos.0 - position.x as f32,
+                    self.mouse_last_pos.1 - position.y as f32,
+                );
+
+                false
+            }
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
@@ -93,7 +110,7 @@ impl CameraController {
         }
     }
 
-    pub fn update_camera(&self, camera: &mut Camera, delta_time: f32) {
+    pub fn update_camera(&mut self, camera: &mut Camera, delta_time: f32) {
         // Получаем основные векторы для навигации
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
@@ -128,42 +145,18 @@ impl CameraController {
         }
 
         // Поворот камеры
-        let target_dir = (camera.target - camera.eye).normalize();
+        let yaw = cgmath::Rad(-self.mouse_delta.0 * self.mouse_sensitivity);
+        let pitch = cgmath::Rad(-self.mouse_delta.1 * self.mouse_sensitivity);
 
-        // Поворот влево/вправо вокруг оси Y
-        if self.is_rotate_left_pressed {
-            let rotation = cgmath::Matrix3::from_axis_angle(
-                Vector3::unit_y(),
-                cgmath::Rad(self.rotation_speed* delta_time * 100.0)
-            );
-            let rotated_dir = rotation * target_dir;
-            camera.target = camera.eye + rotated_dir * forward.magnitude();
-        }
-        if self.is_rotate_right_pressed {
-            let rotation = cgmath::Matrix3::from_axis_angle(
-                Vector3::unit_y(),
-                cgmath::Rad(-self.rotation_speed* delta_time * 100.0)
-            );
-            let rotated_dir = rotation * target_dir;
-            camera.target = camera.eye + rotated_dir * forward.magnitude();
-        }
+        // Yaw rotation (around the up vector)
+        let yaw_rotation = cgmath::Matrix3::from_axis_angle(Vector3::unit_y(), yaw * -1.0);
+        let forward_rotated = yaw_rotation * forward_norm;
 
-        // Поворот вверх/вниз вокруг правого вектора
-        if self.is_rotate_up_pressed {
-            let rotation = cgmath::Matrix3::from_axis_angle(
-                right,
-                cgmath::Rad(-self.rotation_speed)
-            );
-            let rotated_dir = rotation * target_dir;
-            camera.target = camera.eye + rotated_dir * forward.magnitude();
-        }
-        if self.is_rotate_down_pressed {
-            let rotation = cgmath::Matrix3::from_axis_angle(
-                right,
-                cgmath::Rad(self.rotation_speed)
-            );
-            let rotated_dir = rotation * target_dir;
-            camera.target = camera.eye + rotated_dir * forward.magnitude();
-        }
+        // Pitch rotation (around the right vector)
+        let pitch_rotation = cgmath::Matrix3::from_axis_angle(right, pitch * -1.0);
+        let final_rotated = pitch_rotation * forward_rotated;
+
+        camera.target = camera.eye + final_rotated * forward.magnitude();
+        self.mouse_delta = (0.0, 0.0);
     }
 }

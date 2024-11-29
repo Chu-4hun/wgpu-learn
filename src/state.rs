@@ -46,6 +46,7 @@ pub struct State {
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     pub draw_lines: bool,
+    pub free_mouse: bool,
 }
 
 impl State {
@@ -79,7 +80,7 @@ impl State {
 
         let device_desc = wgpu::DeviceDescriptor {
             label: None,
-            required_features: wgpu::Features::empty(),
+            required_features: wgpu::Features::POLYGON_MODE_LINE,
             // WebGL doesn't support all of wgpu's features, so if
             // we're building for the web we'll have to disable some.
             required_limits: if cfg!(target_arch = "wasm32") {
@@ -302,7 +303,7 @@ impl State {
                 topology: wgpu::PrimitiveTopology::TriangleList, // 1.
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw, // 2.
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None,
                 // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
                 polygon_mode: wgpu::PolygonMode::Line,
                 // Requires Features::DEPTH_CLIP_CONTROL
@@ -386,6 +387,7 @@ impl State {
             instance_buffer,
             instances,
             draw_lines: false,
+            free_mouse: false,
         }
     }
 
@@ -399,7 +401,11 @@ impl State {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event)
+        if !self.free_mouse {
+            self.camera_controller.process_events(event)
+        } else {
+            false
+        }
     }
 
     pub fn update(&mut self, delta_time: f32) {

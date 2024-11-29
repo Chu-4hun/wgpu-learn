@@ -9,14 +9,15 @@ use std::{sync::Arc, time::Instant};
 
 use anyhow::Result;
 use state::State;
-use tracing::Level;
+use tracing::{info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use winit::{
     application::ApplicationHandler,
+    dpi::{PhysicalPosition, Position},
     event::{ElementState, KeyEvent, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::{KeyCode, PhysicalKey},
-    window::{Window, WindowId},
+    window::{CursorGrabMode, Window, WindowId},
 };
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
@@ -119,6 +120,7 @@ impl ApplicationHandler<UserEvent> for App {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let state = pollster::block_on(State::new(Arc::new(window)));
+            
             assert!(self
                 .event_loop_proxy
                 .send_event(UserEvent::StateReady(state))
@@ -149,10 +151,23 @@ impl ApplicationHandler<UserEvent> for App {
             return;
         }
 
+        if !state.free_mouse {
+            let size = state.window.inner_size();
+            state
+                .window
+                .set_cursor_position(Position::Physical(PhysicalPosition::new(
+                    (size.width / 2) as i32,
+                    (size.height / 2) as i32,
+                )))
+                .unwrap();
+        }
         // info!("frame time {} s", elapsed,);
         match event {
-            WindowEvent::CloseRequested
-            | WindowEvent::KeyboardInput {
+            WindowEvent::CloseRequested => {
+                tracing::info!("Exited!");
+                event_loop.exit()
+            }
+            WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
                         state: ElementState::Pressed,
@@ -161,14 +176,31 @@ impl ApplicationHandler<UserEvent> for App {
                     },
                 ..
             } => {
-                tracing::info!("Exited!");
-                event_loop.exit()
+                state.window.set_cursor_visible(!state.free_mouse);
+                state
+                    .window
+                    .set_cursor_grab(winit::window::CursorGrabMode::None)
+                    .unwrap();
+                state.free_mouse = !state.free_mouse;
+            }
+
+            WindowEvent::Focused(focus) => {
+                info!("focus {focus}");
+                if focus {
+                    state
+                        .window
+                        .set_cursor_grab(CursorGrabMode::Confined)
+                        .or_else(|_| state.window.set_cursor_grab(CursorGrabMode::Locked))
+                        .unwrap();
+                }
+                state
+                    .window.set_cursor_visible(state.free_mouse);
             }
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
                         state: ElementState::Pressed,
-                        physical_key: PhysicalKey::Code(KeyCode::Space),
+                        physical_key: PhysicalKey::Code(KeyCode::F1),
                         ..
                     },
                 ..
@@ -212,7 +244,6 @@ impl ApplicationHandler<UserEvent> for App {
             _ => {}
         }
         state.egui.handle_input(&state.window, &event);
-
     }
 
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
