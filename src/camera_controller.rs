@@ -1,5 +1,5 @@
 use crate::camera::Camera;
-use cgmath::{InnerSpace, Vector3};
+use cgmath::{InnerSpace, Quaternion, Rad, Rotation, Rotation3, Vector3};
 use winit::{
     event::{ElementState, KeyEvent, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
@@ -36,6 +36,12 @@ impl CameraController {
 
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
+            // WindowEvent::Resized(_) => {
+            //     // Сбрасываем положение мыши
+            //     self.mouse_last_pos = (0.0, 0.0);
+            //     self.mouse_delta = (0.0, 0.0);
+            //     true
+            // }
             WindowEvent::CursorMoved {
                 device_id: _,
                 position,
@@ -111,11 +117,12 @@ impl CameraController {
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, delta_time: f32) {
-        // Получаем основные векторы для навигации
+        // Основные векторы
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
-        let right = forward_norm.cross(camera.up);
+        let right = forward_norm.cross(camera.up).normalize();
 
+        // Движение камеры
         if self.is_up_pressed {
             camera.eye += camera.up * self.speed * delta_time * 100.0;
             camera.target += camera.up * self.speed * delta_time * 100.0;
@@ -124,7 +131,6 @@ impl CameraController {
             camera.eye -= camera.up * self.speed * delta_time * 100.0;
             camera.target -= camera.up * self.speed * delta_time * 100.0;
         }
-        // Движение вперед/назад
         if self.is_forward_pressed {
             camera.eye += forward_norm * self.speed * delta_time * 100.0;
             camera.target += forward_norm * self.speed * delta_time * 100.0;
@@ -133,8 +139,6 @@ impl CameraController {
             camera.eye -= forward_norm * self.speed * delta_time * 100.0;
             camera.target -= forward_norm * self.speed * delta_time * 100.0;
         }
-
-        // Движение влево/вправо
         if self.is_right_pressed {
             camera.eye += right * self.speed * delta_time * 100.0;
             camera.target += right * self.speed * delta_time * 100.0;
@@ -144,19 +148,27 @@ impl CameraController {
             camera.target -= right * self.speed * delta_time * 100.0;
         }
 
-        // Поворот камеры
-        let yaw = cgmath::Rad(-self.mouse_delta.0 * self.mouse_sensitivity);
-        let pitch = cgmath::Rad(-self.mouse_delta.1 * self.mouse_sensitivity);
+        // Повороты камеры
+        let yaw = Rad(self.mouse_delta.0 * self.mouse_sensitivity);
+        let pitch = Rad(self.mouse_delta.1 * self.mouse_sensitivity);
 
-        // Yaw rotation (around the up vector)
-        let yaw_rotation = cgmath::Matrix3::from_axis_angle(Vector3::unit_y(), yaw * -1.0);
-        let forward_rotated = yaw_rotation * forward_norm;
+        // Ограничение угла наклона (pitch)
+        let max_pitch = Rad(89.0f32.to_radians());
+        let current_pitch = forward_norm.dot(camera.up).asin();
+        let new_pitch = (current_pitch + pitch.0).clamp(-max_pitch.0, max_pitch.0);
 
-        // Pitch rotation (around the right vector)
-        let pitch_rotation = cgmath::Matrix3::from_axis_angle(right, pitch * -1.0);
-        let final_rotated = pitch_rotation * forward_rotated;
+        // Рассчитываем новые направления с использованием Quaternion
+        let yaw_quaternion = Quaternion::from_angle_y(yaw);
+        let pitch_quaternion = Quaternion::from_axis_angle(right, Rad(new_pitch - current_pitch));
 
-        camera.target = camera.eye + final_rotated * forward.magnitude();
+        // Обновляем направление взгляда
+        let mut forward_rotated = yaw_quaternion.rotate_vector(forward_norm);
+        forward_rotated = pitch_quaternion.rotate_vector(forward_rotated).normalize();
+
+        // Перемещение цели камеры
+        camera.target = camera.eye + forward_rotated * forward.magnitude();
+
+        // Сбрасываем дельту мыши
         self.mouse_delta = (0.0, 0.0);
     }
 }
