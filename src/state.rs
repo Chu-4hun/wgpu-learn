@@ -329,7 +329,11 @@ impl State {
             &window,       // winit Window
         );
         let num_indices = INDICES.len() as u32;
-        let camera_controller = CameraController::new(0.2);
+        let center = (
+            window.inner_size().width / 2,
+            window.inner_size().height / 2,
+        );
+        let camera_controller = CameraController::new(0.2, center);
 
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
@@ -397,6 +401,9 @@ impl State {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+
+            let center = (new_size.width / 2, new_size.height / 2);
+            self.camera_controller.update_screen_center(center);
         }
     }
 
@@ -519,9 +526,16 @@ impl State {
                         {
                             println!("CHANGED {} {}", self.delay, 1.0 / self.delay);
                         }
+                        ui.code(
+                            egui::RichText::new(format!(
+                                "{:#?}",
+                                self.camera_controller.get_camera_state()
+                            ))
+                            .code(),
+                        );
                         // if ui.add(egui::Button::new("Click me")).clicked() {
                         //     println!("PRESSED")
-                        // }
+                        // }CHANGED
 
                         // ui.label(format!("Slider {}", egui::special_emojis::OS_LINUX));
                         // ui.add(egui::Slider::new(_, 0..=120).text("age"));

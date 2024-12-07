@@ -67,15 +67,18 @@ struct App {
 
     frame_time: Instant,
     delta_time: f32,
+    // rd: RenderDoc<V141>
 }
 
 impl App {
     fn new(event_loop: &EventLoop<UserEvent>) -> Self {
+        // let rd: RenderDoc<V141> = RenderDoc::new().expect("Unable to connect");
         Self {
             state: None,
             event_loop_proxy: event_loop.create_proxy(),
             frame_time: Instant::now(),
             delta_time: 0.0,
+            // rd
         }
     }
 }
@@ -161,7 +164,6 @@ impl ApplicationHandler<UserEvent> for App {
                 )))
                 .unwrap();
         }
-        // info!("frame time {} s", elapsed,);
         match event {
             WindowEvent::CloseRequested => {
                 tracing::info!("Exited!");
@@ -193,8 +195,7 @@ impl ApplicationHandler<UserEvent> for App {
                         .or_else(|_| state.window.set_cursor_grab(CursorGrabMode::Locked))
                         .unwrap();
                 }
-                state
-                    .window.set_cursor_visible(state.free_mouse);
+                state.window.set_cursor_visible(state.free_mouse);
             }
             WindowEvent::KeyboardInput {
                 event:
@@ -206,6 +207,17 @@ impl ApplicationHandler<UserEvent> for App {
                 ..
             } => {
                 state.draw_lines = !state.draw_lines;
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state: ElementState::Pressed,
+                        physical_key: PhysicalKey::Code(KeyCode::F2),
+                        ..
+                    },
+                ..
+            } => {
+                // self.rd.trigger_capture();
             }
             WindowEvent::Resized(physical_size) => {
                 state.surface_configured = true;

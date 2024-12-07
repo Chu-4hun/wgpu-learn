@@ -8,7 +8,7 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 winit = {version ="0.30", features = ["rwh_05" ] }
-wgpu = "22.0"
+wgpu = "22" #locked to egui
 bytemuck = { version = "1.19.0", features = ["derive"] }
 image = { version = "0.25.4", default-features = false ,features = ["png", "jpeg"]}
 cgmath = "0.18.0"
@@ -19,7 +19,7 @@ egui-wgpu = "0.29.1"
 egui-winit = "0.29"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pollster = "0.3"
+pollster = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1"

@@ -1,57 +1,43 @@
 use crate::camera::Camera;
-use cgmath::{InnerSpace, Quaternion, Rad, Rotation, Rotation3, Vector3};
+use cgmath::{InnerSpace, Quaternion, Rad, Rotation, Rotation3};
 use winit::{
     event::{ElementState, KeyEvent, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
 };
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CameraController {
     speed: f32,
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
     is_right_pressed: bool,
-    is_rotate_left_pressed: bool,
-    is_rotate_right_pressed: bool,
-    is_rotate_up_pressed: bool,
-    is_rotate_down_pressed: bool,
 
-    is_down_pressed: bool,
     is_up_pressed: bool,
-
-    mouse_last_pos: (f32, f32),
+    is_down_pressed: bool,
+    screen_center: (u32, u32),
     mouse_delta: (f32, f32),
     mouse_sensitivity: f32,
 }
 
 impl CameraController {
-    pub fn new(speed: f32) -> Self {
+    pub fn new(speed: f32, screen_center: (u32, u32)) -> Self {
         Self {
             speed,
             mouse_sensitivity: 0.002, // Скорость поворота в радианах
+            screen_center,
             ..Default::default()
         }
     }
 
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
-            // WindowEvent::Resized(_) => {
-            //     // Сбрасываем положение мыши
-            //     self.mouse_last_pos = (0.0, 0.0);
-            //     self.mouse_delta = (0.0, 0.0);
-            //     true
-            // }
-            WindowEvent::CursorMoved {
-                device_id: _,
-                position,
-            } => {
-                if self.mouse_last_pos.0 == 0.0 && self.mouse_last_pos.1 == 0.0 {
-                    self.mouse_last_pos = (position.x as f32, position.y as f32)
-                }
+            WindowEvent::CursorMoved { position, .. } => {
+                let (x, y) = (position.x as f32, position.y as f32);
+
                 self.mouse_delta = (
-                    self.mouse_last_pos.0 - position.x as f32,
-                    self.mouse_last_pos.1 - position.y as f32,
+                    x - self.screen_center.0 as f32,
+                    y - self.screen_center.1 as f32,
                 );
 
                 false
@@ -67,7 +53,6 @@ impl CameraController {
             } => {
                 let is_pressed = *state == ElementState::Pressed;
                 match keycode {
-                    // WASD для движения
                     KeyCode::KeyW => {
                         self.is_forward_pressed = is_pressed;
                         true
@@ -82,23 +67,6 @@ impl CameraController {
                     }
                     KeyCode::KeyD => {
                         self.is_right_pressed = is_pressed;
-                        true
-                    }
-                    // Стрелочки для поворота
-                    KeyCode::ArrowLeft => {
-                        self.is_rotate_left_pressed = is_pressed;
-                        true
-                    }
-                    KeyCode::ArrowRight => {
-                        self.is_rotate_right_pressed = is_pressed;
-                        true
-                    }
-                    KeyCode::ArrowDown => {
-                        self.is_rotate_up_pressed = is_pressed;
-                        true
-                    }
-                    KeyCode::ArrowUp => {
-                        self.is_rotate_down_pressed = is_pressed;
                         true
                     }
                     KeyCode::KeyE => {
@@ -149,8 +117,8 @@ impl CameraController {
         }
 
         // Повороты камеры
-        let yaw = Rad(self.mouse_delta.0 * self.mouse_sensitivity);
-        let pitch = Rad(self.mouse_delta.1 * self.mouse_sensitivity);
+        let yaw = Rad(self.mouse_delta.0 * self.mouse_sensitivity * -1.0);
+        let pitch = Rad(self.mouse_delta.1 * self.mouse_sensitivity * -1.0);
 
         // Ограничение угла наклона (pitch)
         let max_pitch = Rad(89.0f32.to_radians());
@@ -170,5 +138,11 @@ impl CameraController {
 
         // Сбрасываем дельту мыши
         self.mouse_delta = (0.0, 0.0);
+    }
+    pub fn get_camera_state(&self) -> &Self {
+        self
+    }
+    pub fn update_screen_center(&mut self, screen_center: (u32, u32)) {
+        self.screen_center = screen_center
     }
 }
