@@ -4,6 +4,7 @@ pub mod gui;
 pub mod instance;
 pub mod state;
 pub mod texture;
+pub mod model;
 
 use std::{sync::Arc, time::Instant};
 
