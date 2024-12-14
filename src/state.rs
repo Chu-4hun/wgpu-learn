@@ -15,7 +15,7 @@ use crate::{
     model::{DrawModel, Model, ModelVertex, Vertex, INDICES, VERTICES},
     resourses::load_model,
     texture::{self, Texture},
-     NUM_INSTANCES_PER_ROW,
+    NUM_INSTANCES_PER_ROW,
 };
 
 pub struct State {
@@ -32,8 +32,6 @@ pub struct State {
 
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
-    diffuse_bind_group: wgpu::BindGroup,
-    _diffuse_texture: texture::Texture,
 
     camera: Camera,
     camera_uniform: CameraUniform,
@@ -50,7 +48,7 @@ pub struct State {
     pub free_mouse: bool,
 
     depth_texture: Texture,
-    model: Model,
+    obj_model: Model,
 }
 
 impl State {
@@ -66,7 +64,6 @@ impl State {
             } else {
                 wgpu::Backends::GL
             },
-            backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         };
         let instance = wgpu::Instance::new(instance_desc);
@@ -129,10 +126,6 @@ impl State {
             surface_configured = false;
         }
 
-        let diffuse_bytes = include_bytes!("../assets/avatar.png");
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "avatar.png").unwrap(); // CHANGED!
-
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
@@ -157,20 +150,6 @@ impl State {
                 ],
                 label: Some("texture_bind_group_layout"),
             });
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view), // CHANGED!
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler), // CHANGED!
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
@@ -408,8 +387,6 @@ impl State {
             line_pipeline,
             vertex_buffer,
             index_buffer,
-            diffuse_bind_group,
-            _diffuse_texture: diffuse_texture,
             camera,
             camera_uniform,
             camera_buffer,
@@ -422,7 +399,7 @@ impl State {
             draw_lines: false,
             free_mouse: true,
             depth_texture,
-            model: obj_model,
+            obj_model,
         }
     }
 
@@ -438,6 +415,9 @@ impl State {
 
             let center = (new_size.width / 2, new_size.height / 2);
             self.camera_controller.update_screen_center(center);
+
+            self.camera.aspect = new_size.width as f32 / new_size.height as f32;
+            self.camera_uniform.update_view_proj(&self.camera);
         }
     }
 
@@ -527,20 +507,23 @@ impl State {
                 render_pass.set_pipeline(&self.render_pipeline);
             }
 
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
-            render_pass.draw_mesh_instanced(&self.model.meshes[0], 0..self.instances.len() as u32);
+            render_pass.draw_model_instanced(
+                &self.obj_model,
+                0..self.instances.len() as u32,
+                &self.camera_bind_group,
+            );
         }
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [self.config.width, self.config.height],
             pixels_per_point: self.window().scale_factor() as f32,
         };
+        
         self.egui.draw(
             &self.device,
             &self.queue,
@@ -549,15 +532,14 @@ impl State {
             &view,
             screen_descriptor,
             |ui| {
-                egui::Window::new("hello, im debug window 👋")
+                egui::Window::new("Debug")
                     // .vscroll(true)
-                    .title_bar(false)
-                    .default_open(true)
-                    .max_width(1000.0)
-                    .max_height(800.0)
-                    .default_width(800.0)
-                    .resizable(true)
-                    .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+                    .title_bar(true)
+                    .collapsible(true)
+                    .default_open(false)
+                    // .resizable(false)
+                    .movable(true)
+                    // .anchor(egui::Align2::LEFT_TOP, [10.0, 10.0])
                     .show(ui, |ui| {
                         ui.label(format!("FPS: {:.1}", 1.0 / delta_time));
                         ui.label(format!("Frame Time: {:.2}ms", delta_time * 1000.0));

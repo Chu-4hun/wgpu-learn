@@ -19,7 +19,7 @@ use winit::{
     event::{ElementState, KeyEvent, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::{KeyCode, PhysicalKey},
-    window::{CursorGrabMode, Window, WindowId},
+    window::{CursorGrabMode, Window, WindowAttributes, WindowId},
 };
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
@@ -53,7 +53,10 @@ impl App {
 impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         tracing::info!("Resumed");
-        let window_attrs = Window::default_attributes();
+
+        let mut window_attrs = WindowAttributes::default();
+        window_attrs.title = "Chu engine".to_string();
+
         let window = event_loop
             .create_window(window_attrs)
             .expect("Couldn't create window.");

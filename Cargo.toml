@@ -3,6 +3,8 @@ name = "wgpu-learn"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow = "1.0"
@@ -22,18 +24,21 @@ tracing-appender = "0.2.3"
 
 egui = "0.29.1"
 egui-wgpu = "0.29.1"
-egui-winit = "0.29"
-
 
 tobj = { version = "4", default-features = false, features = ["async"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pollster = "0.4"
 
+egui-winit = { version = "0.29", features = ["puffin"]}
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+egui-winit = { version = "0.29", default-features = false, features = ["wayland" , "x11", "serde", "puffin"]}
+
 console_error_panic_hook = "0.1"
 tracing-wasm = "0.2"
-wasm-bindgen = "0.2"
+wasm-bindgen = { version = "0.2", default-features = false}
+wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
     "Document",
     "Window",
