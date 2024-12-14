@@ -2,9 +2,10 @@ pub mod camera;
 pub mod camera_controller;
 pub mod gui;
 pub mod instance;
+pub mod model;
+pub mod resourses;
 pub mod state;
 pub mod texture;
-pub mod model;
 
 use std::{sync::Arc, time::Instant};
 
@@ -22,41 +23,6 @@ use winit::{
 };
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-}
-impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
-
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
-#[rustfmt::skip]
-const VERTICES: &[Vertex] = &[
-    // Changed
-    Vertex { position: [-0.0868241,   0.49240386, 0.0],    tex_coords: [0.4131759,    0.00759614] }, // A
-    Vertex { position: [-0.49513406,  0.06958647, 0.0],    tex_coords: [0.0048659444, 0.43041354] }, // B
-    Vertex { position: [-0.21918549, -0.44939706, 0.0],    tex_coords: [0.28081453,   0.949397] }, // C
-    Vertex { position: [ 0.35966998, -0.3473291,  0.0],    tex_coords: [0.85967,      0.84732914] },    // D
-    Vertex { position: [ 0.44147372,  0.2347359,  0.0],    tex_coords: [0.9414737,    0.2652641] },    // E
-];
-
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 enum UserEvent {
     StateReady(State),
@@ -124,7 +90,7 @@ impl ApplicationHandler<UserEvent> for App {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let state = pollster::block_on(State::new(Arc::new(window)));
-            
+
             assert!(self
                 .event_loop_proxy
                 .send_event(UserEvent::StateReady(state))

@@ -3,20 +3,29 @@ name = "wgpu-learn"
 version = "0.1.0"
 edition = "2021"
 
+
 [dependencies]
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-winit = {version ="0.30", features = ["rwh_05" ] }
+winit = { version = "0.30", features = ["rwh_05"] }
 wgpu = "22" #locked to egui
 bytemuck = { version = "1.19.0", features = ["derive"] }
-image = { version = "0.25.4", default-features = false ,features = ["png", "jpeg"]}
+image = { version = "0.25.4", default-features = false, features = [
+    "png",
+    "jpeg",
+] }
+cfg-if = "1.0.0"
+
 cgmath = "0.18.0"
 tracing-appender = "0.2.3"
 
 egui = "0.29.1"
 egui-wgpu = "0.29.1"
 egui-winit = "0.29"
+
+
+tobj = { version = "4", default-features = false, features = ["async"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pollster = "0.4"
@@ -25,4 +34,17 @@ pollster = "0.4"
 console_error_panic_hook = "0.1"
 tracing-wasm = "0.2"
 wasm-bindgen = "0.2"
-web-sys = { version = "0.3", features = ["Document", "Element", "Window"] }
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Window",
+    "Element",
+    "Location",
+] }
+# Other dependencies
+reqwest = { version = "0.12" }
+
+
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.2"
+glob = "0.3"

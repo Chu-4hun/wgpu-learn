@@ -1,7 +1,7 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use tracing::debug;
 use wgpu::{util::DeviceExt, Buffer, RenderPipeline};
 
@@ -12,8 +12,10 @@ use crate::{
     camera_controller::CameraController,
     gui::EguiRenderer,
     instance::Instance,
+    model::{DrawModel, Model, ModelVertex, Vertex, INDICES, VERTICES},
+    resourses::load_model,
     texture::{self, Texture},
-    Vertex, INDICES, INSTANCE_DISPLACEMENT, NUM_INSTANCES_PER_ROW, VERTICES,
+     NUM_INSTANCES_PER_ROW,
 };
 
 pub struct State {
@@ -30,8 +32,6 @@ pub struct State {
 
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
-    num_indices: u32,
-
     diffuse_bind_group: wgpu::BindGroup,
     _diffuse_texture: texture::Texture,
 
@@ -50,6 +50,7 @@ pub struct State {
     pub free_mouse: bool,
 
     depth_texture: Texture,
+    model: Model,
 }
 
 impl State {
@@ -248,7 +249,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::desc(), crate::instance::InstanceRaw::desc()],
+                buffers: &[ModelVertex::desc(), crate::instance::InstanceRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -296,7 +297,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::desc(), crate::instance::InstanceRaw::desc()],
+                buffers: &[ModelVertex::desc(), crate::instance::InstanceRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -346,25 +347,35 @@ impl State {
             1,             // samples
             &window,       // winit Window
         );
-        let num_indices = INDICES.len() as u32;
+
+        // Convert to a normalized OS-specific PathBuf
+
+        let obj_model = load_model(
+            Path::new("models/cube/cube.obj"),
+            &device,
+            &queue,
+            &texture_bind_group_layout,
+        )
+        .await
+        .context("unable to load model models/cube/cube.obj")
+        .unwrap();
+
         let center = (
             window.inner_size().width / 2,
             window.inner_size().height / 2,
         );
         let camera_controller = CameraController::new(0.2, center);
 
+        const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = cgmath::Vector3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
 
                     let rotation = if position.is_zero() {
-                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                        // as Quaternions can affect scale if they're not created correctly
                         cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(0.0),
@@ -377,6 +388,7 @@ impl State {
                 })
             })
             .collect::<Vec<_>>();
+
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -396,7 +408,6 @@ impl State {
             line_pipeline,
             vertex_buffer,
             index_buffer,
-            num_indices,
             diffuse_bind_group,
             _diffuse_texture: diffuse_texture,
             camera,
@@ -409,8 +420,9 @@ impl State {
             instance_buffer,
             instances,
             draw_lines: false,
-            free_mouse: false,
+            free_mouse: true,
             depth_texture,
+            model: obj_model,
         }
     }
 
@@ -523,7 +535,7 @@ impl State {
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
+            render_pass.draw_mesh_instanced(&self.model.meshes[0], 0..self.instances.len() as u32);
         }
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [self.config.width, self.config.height],
