@@ -1,6 +1,14 @@
 # learning project 
 ## Progress so far (from new to old updates)
 ---
+### add .obj loading [commit](8a3f0776d25fe73734342d3cdae316ae6f6c59be)
+
+Its cubes now
+
+![demo4](https://github.com/user-attachments/assets/8837a015-574b-4d7b-a9c2-3ab1dddecf93)
+
+
+
 ### add egui for debug gui [commit](797d7fa5ed5d601ad9471e5935bb8039f8258f11)
 * Mouse camera movement
   * I first tried using last mouse position but it was buggy, now i use windows center
