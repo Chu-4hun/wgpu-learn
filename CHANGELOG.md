@@ -1,6 +1,5 @@
 
 ## Add profiler and model textures loading 
-*
 
 ![profiler](https://github.com/user-attachments/assets/79c0be88-ec9a-4d84-89c1-2737fdf00385)
 
