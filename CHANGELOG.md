@@ -3,7 +3,7 @@
 
 ![profiler](https://github.com/user-attachments/assets/79c0be88-ec9a-4d84-89c1-2737fdf00385)
 
-And fix camate projection on resize
+And fix camera projection on resize
 
 ![wierd_aspect](https://github.com/user-attachments/assets/b83eca3b-c4f5-4e5f-9524-8c47d014421e)
 ![good_asp](https://github.com/user-attachments/assets/af67388e-021e-4624-8cf3-4c9e76ef507a)
