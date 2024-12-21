@@ -19,7 +19,7 @@ use winit::{
     event::{ElementState, KeyEvent, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::{KeyCode, PhysicalKey},
-    window::{CursorGrabMode, Window, WindowAttributes, WindowId},
+    window::{CursorGrabMode, WindowAttributes, WindowId},
 };
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
@@ -258,7 +258,8 @@ pub fn run() -> Result<()> {
             .with_level(true);
         subscriber.with(fmt_layer).init();
     }
-
+    
+    
     let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
     let mut app = App::new(&event_loop);
 

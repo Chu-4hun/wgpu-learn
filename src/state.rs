@@ -227,14 +227,14 @@ impl State {
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[ModelVertex::desc(), crate::instance::InstanceRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 // 3.
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     // 4.
                     format: config.format,
@@ -275,14 +275,14 @@ impl State {
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[ModelVertex::desc(), crate::instance::InstanceRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 // 3.
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     // 4.
                     format: config.format,
@@ -428,7 +428,7 @@ impl State {
             false
         }
     }
-
+    #[profiling::function]
     pub fn update(&mut self, delta_time: f32) {
         self.camera_controller
             .update_camera(&mut self.camera, delta_time);
@@ -458,7 +458,9 @@ impl State {
         );
     }
 
+    #[profiling::function]
     pub fn render(&mut self, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
+
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -471,6 +473,7 @@ impl State {
             });
 
         {
+            profiling::scope!("clear color render");
             let clear_color = wgpu::Color {
                 r: 0.1,
                 g: 0.3,
@@ -500,30 +503,36 @@ impl State {
                 timestamp_writes: None,
             };
 
-            let mut render_pass = encoder.begin_render_pass(&render_pass_desc);
-            if self.draw_lines {
-                render_pass.set_pipeline(&self.line_pipeline);
-            } else {
-                render_pass.set_pipeline(&self.render_pipeline);
+            {
+                profiling::scope!("render pass");
+
+                let mut render_pass = encoder.begin_render_pass(&render_pass_desc);
+                if self.draw_lines {
+                    render_pass.set_pipeline(&self.line_pipeline);
+                } else {
+                    render_pass.set_pipeline(&self.render_pipeline);
+                }
+
+                render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+
+                render_pass
+                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+                render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+
+                render_pass.draw_model_instanced(
+                    &self.obj_model,
+                    0..self.instances.len() as u32,
+                    &self.camera_bind_group,
+                );
             }
-
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-
-            render_pass.draw_model_instanced(
-                &self.obj_model,
-                0..self.instances.len() as u32,
-                &self.camera_bind_group,
-            );
         }
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [self.config.width, self.config.height],
             pixels_per_point: self.window().scale_factor() as f32,
         };
         
+        profiling::scope!("EGUI render");
         self.egui.draw(
             &self.device,
             &self.queue,
@@ -531,7 +540,9 @@ impl State {
             &self.window,
             &view,
             screen_descriptor,
-            |ui| {
+            |ctx| {
+               
+
                 egui::Window::new("Debug")
                     // .vscroll(true)
                     .title_bar(true)
@@ -540,7 +551,7 @@ impl State {
                     // .resizable(false)
                     .movable(true)
                     // .anchor(egui::Align2::LEFT_TOP, [10.0, 10.0])
-                    .show(ui, |ui| {
+                    .show(ctx, |ui| {
                         ui.label(format!("FPS: {:.1}", 1.0 / delta_time));
                         ui.label(format!("Frame Time: {:.2}ms", delta_time * 1000.0));
                         if ui
@@ -556,6 +567,7 @@ impl State {
                             ))
                             .code(),
                         );
+
                         // if ui.add(egui::Button::new("Click me")).clicked() {
                         //     println!("PRESSED")
                         // }CHANGED
@@ -579,6 +591,7 @@ impl State {
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
+        profiling::finish_frame!();
         Ok(())
     }
     pub fn window(&self) -> &Window {
