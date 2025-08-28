@@ -12,30 +12,30 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 winit = { version = "0.30", features = ["rwh_05"] }
-wgpu = "23.0.1" #locked to egui
-bytemuck = { version = "1.19.0", features = ["derive"] }
-image = { version = "0.25.4", default-features = false, features = [
+wgpu = "25.0.1" #locked to egui
+bytemuck = { version = "1.23", features = ["derive"] }
+image = { version = "0.25", default-features = false, features = [
     "png",
     "jpeg",
 ] }
-cfg-if = "1.0.0"
+cfg-if = "1.0"
 
-cgmath = "0.18.0"
-tracing-appender = "0.2.3"
+cgmath = "0.18"
+tracing-appender = "0.2"
 
-egui = "0.30.0"
-egui-wgpu = "0.30.0"
-egui-winit = { version = "0.30.0"}
-profiling = { version = "1" }
+egui = "0.32"
+egui-wgpu = "0.32"
+egui-winit = { version = "0.32"}
+profiling = { version = "1.0" }
 
-tobj = { version = "4", default-features = false, features = ["async"] }
+tobj = { version = "4.0", default-features = false, features = ["async"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pollster = "0.4"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-egui-winit = { version = "0.30.0", default-features = false, features = [
+egui-winit = { version = "0.32", default-features = false, features = [
     "wayland",
     "x11",
     "serde",
@@ -57,7 +57,7 @@ reqwest = { version = "0.12" }
 
 [build-dependencies]
 anyhow = "1.0"
-fs_extra = "1.2"
+fs_extra = "1.3"
 glob = "0.3"
 
 

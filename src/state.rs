@@ -5,7 +5,7 @@ use std::{path::Path, sync::Arc};
 use tracing::debug;
 use wgpu::{util::DeviceExt, Buffer, RenderPipeline};
 
-use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
+use winit::{dpi::PhysicalSize, event::{DeviceEvent, WindowEvent}, window::Window};
 
 use crate::{
     camera::{Camera, CameraUniform},
@@ -66,7 +66,7 @@ impl State {
             },
             ..Default::default()
         };
-        let instance = wgpu::Instance::new(instance_desc);
+        let instance = wgpu::Instance::new(&instance_desc);
 
         let surface = instance.create_surface(window.clone()).unwrap();
 
@@ -90,8 +90,9 @@ impl State {
                 wgpu::Limits::default()
             },
             memory_hints: wgpu::MemoryHints::default(),
+            trace: wgpu::Trace::Off
         };
-        let (device, queue) = adapter.request_device(&device_desc, None).await.unwrap();
+        let (device, queue) = adapter.request_device(&device_desc).await.unwrap();
 
         let surface_caps = surface.get_capabilities(&adapter);
         // Shader code in this tutorial assumes an Srgb surface texture. Using a different
@@ -421,6 +422,13 @@ impl State {
         }
     }
 
+    pub fn device_input(&mut self, event: &DeviceEvent) -> bool {
+        if !self.free_mouse {
+            self.camera_controller.process_device_events(event)
+        } else {
+            false
+        }
+    }
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         if !self.free_mouse {
             self.camera_controller.process_events(event)

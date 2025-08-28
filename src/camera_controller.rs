@@ -1,7 +1,7 @@
 use crate::camera::Camera;
 use cgmath::{InnerSpace, Quaternion, Rad, Rotation, Rotation3};
 use winit::{
-    event::{ElementState, KeyEvent, WindowEvent},
+    event::{DeviceEvent, ElementState, KeyEvent, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
 };
 
@@ -29,19 +29,20 @@ impl CameraController {
             ..Default::default()
         }
     }
+    pub fn process_device_events(&mut self, event: &DeviceEvent) -> bool {
+        match event {
+            DeviceEvent::MouseMotion { delta } => {
+                self.mouse_delta.0 = delta.0 as f32;
+                self.mouse_delta.1 = delta.1 as f32;
+
+                true
+            }
+            _ => false,
+        }
+    }
 
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
-            WindowEvent::CursorMoved { position, .. } => {
-                let (x, y) = (position.x as f32, position.y as f32);
-
-                self.mouse_delta = (
-                    x - self.screen_center.0 as f32,
-                    y - self.screen_center.1 as f32,
-                );
-
-                false
-            }
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
@@ -117,11 +118,11 @@ impl CameraController {
         }
 
         // Повороты камеры
-        let yaw = Rad(self.mouse_delta.0 * self.mouse_sensitivity * -1.0);
-        let pitch = Rad(self.mouse_delta.1 * self.mouse_sensitivity * -1.0);
+        let yaw = Rad(-(self.mouse_delta.0 * self.mouse_sensitivity));
+        let pitch = Rad(-(self.mouse_delta.1 * self.mouse_sensitivity));
 
         // Ограничение угла наклона (pitch)
-        let max_pitch = Rad(89.0f32.to_radians());
+        let max_pitch = Rad(89.0_f32.to_radians());
         let current_pitch = forward_norm.dot(camera.up).asin();
         let new_pitch = (current_pitch + pitch.0).clamp(-max_pitch.0, max_pitch.0);
 

@@ -25,10 +25,10 @@ impl EguiRenderer {
         let egui_context = Context::default();
         let id = egui_context.viewport_id();
 
-        const BORDER_RADIUS: f32 = 2.0;
+        const BORDER_RADIUS: u8 = 2;
 
         let visuals = Visuals {
-            window_rounding: egui::Rounding::same(BORDER_RADIUS),
+            menu_corner_radius: egui::CornerRadius::same(BORDER_RADIUS),
             window_shadow: Shadow::NONE,
             // menu_rounding: todo!(),
             ..Default::default()

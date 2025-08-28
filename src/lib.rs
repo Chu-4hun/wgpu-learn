@@ -11,11 +11,11 @@ use std::{sync::Arc, time::Instant};
 
 use anyhow::Result;
 use state::State;
-use tracing::{info, Level};
+use tracing::{info, warn, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use winit::{
     application::ApplicationHandler,
-    dpi::{PhysicalPosition, Position},
+    dpi::PhysicalPosition,
     event::{ElementState, KeyEvent, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::{KeyCode, PhysicalKey},
@@ -105,6 +105,17 @@ impl ApplicationHandler<UserEvent> for App {
         let UserEvent::StateReady(state) = event;
         self.state = Some(state);
     }
+    fn device_event(
+        &mut self,
+        _: &ActiveEventLoop,
+        _: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        let Some(ref mut state) = self.state else {
+            return;
+        };
+        if state.device_input(&event) {}
+    }
 
     fn window_event(
         &mut self,
@@ -119,7 +130,6 @@ impl ApplicationHandler<UserEvent> for App {
         if window_id != state.window.id() {
             return;
         }
-
         if state.input(&event) {
             return;
         }
@@ -128,12 +138,19 @@ impl ApplicationHandler<UserEvent> for App {
             let size = state.window.inner_size();
             state
                 .window
-                .set_cursor_position(Position::Physical(PhysicalPosition::new(
-                    (size.width / 2) as i32,
-                    (size.height / 2) as i32,
-                )))
+                .set_cursor_grab(CursorGrabMode::Locked)
                 .unwrap();
+            let center = PhysicalPosition::new((size.width / 2) as i32, (size.height / 2) as i32);
+            match state.window.set_cursor_position(center) {
+                Ok(()) => {
+                    info!("Cursor position set successfully in update loop.");
+                }
+                Err(e) => {
+                    warn!("Failed to set cursor position in update loop: {}", e);
+                }
+            }
         }
+
         match event {
             WindowEvent::CloseRequested => {
                 tracing::info!("Exited!");
@@ -161,8 +178,8 @@ impl ApplicationHandler<UserEvent> for App {
                 if focus {
                     state
                         .window
-                        .set_cursor_grab(CursorGrabMode::Confined)
-                        .or_else(|_| state.window.set_cursor_grab(CursorGrabMode::Locked))
+                        .set_cursor_grab(CursorGrabMode::Locked)
+                        .or_else(|_| state.window.set_cursor_grab(CursorGrabMode::None))
                         .unwrap();
                 }
                 state.window.set_cursor_visible(state.free_mouse);
@@ -218,6 +235,10 @@ impl ApplicationHandler<UserEvent> for App {
                     Err(wgpu::SurfaceError::Timeout) => {
                         tracing::warn!("Surface timeout");
                     }
+                    Err(wgpu::SurfaceError::Other) => {
+                        tracing::error!("SurfaceError");
+                        event_loop.exit();
+                    }
                 }
 
                 self.frame_time = start;
@@ -258,8 +279,7 @@ pub fn run() -> Result<()> {
             .with_level(true);
         subscriber.with(fmt_layer).init();
     }
-    
-    
+
     let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
     let mut app = App::new(&event_loop);
 
