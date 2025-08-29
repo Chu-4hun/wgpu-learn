@@ -14,7 +14,7 @@
           pkgs.lib.makeLibraryPath [ libGL libxkbcommon wayland ];
       in {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [ cargo rustc rust-analyzer ];
+          buildInputs = with pkgs; [ cargo renderdoc];
 
           RUST_LOG = "debug";
           RUST_SRC_PATH =

@@ -11,7 +11,7 @@ use std::{sync::Arc, time::Instant};
 
 use anyhow::Result;
 use state::State;
-use tracing::{info, warn, Level};
+use tracing::{info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use winit::{
     application::ApplicationHandler,
@@ -39,13 +39,11 @@ struct App {
 
 impl App {
     fn new(event_loop: &EventLoop<UserEvent>) -> Self {
-        // let rd: RenderDoc<V141> = RenderDoc::new().expect("Unable to connect");
         Self {
             state: None,
             event_loop_proxy: event_loop.create_proxy(),
             frame_time: Instant::now(),
             delta_time: 0.0,
-            // rd
         }
     }
 }
@@ -141,14 +139,7 @@ impl ApplicationHandler<UserEvent> for App {
                 .set_cursor_grab(CursorGrabMode::Locked)
                 .unwrap();
             let center = PhysicalPosition::new((size.width / 2) as i32, (size.height / 2) as i32);
-            match state.window.set_cursor_position(center) {
-                Ok(()) => {
-                    info!("Cursor position set successfully in update loop.");
-                }
-                Err(e) => {
-                    warn!("Failed to set cursor position in update loop: {}", e);
-                }
-            }
+            let _ = state.window.set_cursor_position(center);
         }
 
         match event {
@@ -260,7 +251,10 @@ pub fn run() -> Result<()> {
     let env_filter = EnvFilter::builder()
         .with_default_directive(Level::INFO.into())
         .from_env_lossy()
-        .add_directive("wgpu_core::device::resource=warn".parse()?);
+        .add_directive("wgpu_core::device::resource=warn".parse()?)
+        .add_directive("naga=warn".parse()?)
+        .add_directive("wgpu_hal=warn".parse()?)
+        .add_directive("winit=warn".parse()?);
 
     let subscriber = tracing_subscriber::registry().with(env_filter);
     #[cfg(target_arch = "wasm32")]
