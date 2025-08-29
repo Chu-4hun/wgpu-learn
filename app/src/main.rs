@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lib_wgpu_learn::run;
+use chu_engine::run;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
