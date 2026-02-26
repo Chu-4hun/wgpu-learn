@@ -7,7 +7,7 @@ use anyhow::Context;
 use cfg_if::cfg_if;
 use wgpu::util::DeviceExt;
 
-use crate::{model, texture};
+use crate::{context::GpuContext, model, texture};
 
 #[cfg(target_arch = "wasm32")]
 fn format_url(file_name: &str) -> reqwest::Url {
@@ -74,8 +74,7 @@ pub async fn load_texture(
 
 pub async fn load_model(
     path: &Path,
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
+    gpu_context: &GpuContext,
     layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
     let parent_path = path.parent().unwrap_or(Path::new(""));
@@ -105,11 +104,11 @@ pub async fn load_model(
         let diffuse_texture = load_texture(
             parent_path.join(m.diffuse_texture.unwrap_or("default_diffuse_texture".to_owned())).to_string_lossy().as_ref() 
                 ,
-            device,
-            queue,
+            &gpu_context.device,
+            &gpu_context.queue,
         )
         .await?;
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = gpu_context.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -170,12 +169,12 @@ pub async fn load_model(
                 })
                 .collect::<Vec<_>>();
 
-            let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            let vertex_buffer = gpu_context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(&format!("{:?} Vertex Buffer", file_name)),
                 contents: bytemuck::cast_slice(&vertices),
                 usage: wgpu::BufferUsages::VERTEX,
             });
-            let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            let index_buffer = gpu_context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(&format!("{:?} Index Buffer", file_name)),
                 contents: bytemuck::cast_slice(&m.mesh.indices),
                 usage: wgpu::BufferUsages::INDEX,

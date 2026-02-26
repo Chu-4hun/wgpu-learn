@@ -28,6 +28,12 @@ impl Camera {
         // 3.
         OPENGL_TO_WGPU_MATRIX * proj * view
     }
+
+    pub fn as_uniform(&self)-> CameraUniform{
+        let mut camera_uniform = CameraUniform::new();
+        camera_uniform.set_view_proj(self);
+        camera_uniform
+    }
 }
 #[repr(C)]
 // This is so we can store this in a buffer
@@ -46,7 +52,7 @@ impl CameraUniform {
         }
     }
 
-    pub fn update_view_proj(&mut self, camera: &Camera) {
+    pub fn set_view_proj(&mut self, camera: &Camera) {
         self.view_proj = camera.build_view_projection_matrix().into();
     }
 }

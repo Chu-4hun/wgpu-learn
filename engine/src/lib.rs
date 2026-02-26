@@ -1,18 +1,20 @@
 pub mod camera;
 pub mod camera_controller;
+pub mod context;
 pub mod gui;
 pub mod instance;
 pub mod model;
 pub mod resourses;
 pub mod state;
 pub mod texture;
+pub mod pipeline;
 
 use std::{sync::Arc, time::Instant};
 
 use anyhow::Result;
 use state::State;
-use tracing::{info, Level};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing::{Level, info};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalPosition,
@@ -34,7 +36,6 @@ struct App {
 
     frame_time: Instant,
     delta_time: f32,
-    // rd: RenderDoc<V141>
 }
 
 impl App {
@@ -82,9 +83,11 @@ impl ApplicationHandler<UserEvent> for App {
             let event_loop_proxy = self.event_loop_proxy.clone();
             let future = async move {
                 let state = state_future.await;
-                assert!(event_loop_proxy
-                    .send_event(UserEvent::StateReady(state))
-                    .is_ok());
+                assert!(
+                    event_loop_proxy
+                        .send_event(UserEvent::StateReady(state))
+                        .is_ok()
+                );
             };
             wasm_bindgen_futures::spawn_local(future)
         }
@@ -92,10 +95,11 @@ impl ApplicationHandler<UserEvent> for App {
         {
             let state = pollster::block_on(State::new(Arc::new(window)));
 
-            assert!(self
-                .event_loop_proxy
-                .send_event(UserEvent::StateReady(state))
-                .is_ok());
+            assert!(
+                self.event_loop_proxy
+                    .send_event(UserEvent::StateReady(state))
+                    .is_ok()
+            );
         }
     }
 
@@ -186,19 +190,8 @@ impl ApplicationHandler<UserEvent> for App {
             } => {
                 state.draw_lines = !state.draw_lines;
             }
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state: ElementState::Pressed,
-                        physical_key: PhysicalKey::Code(KeyCode::F2),
-                        ..
-                    },
-                ..
-            } => {
-                // self.rd.trigger_capture();
-            }
             WindowEvent::Resized(physical_size) => {
-                state.surface_configured = true;
+                
                 state.resize(physical_size);
                 // tracing::info!("physical_size: {physical_size:?}");
             }
@@ -206,7 +199,7 @@ impl ApplicationHandler<UserEvent> for App {
                 let start = Instant::now();
                 let elapsed = (start - self.frame_time).as_secs_f32();
 
-                if !state.surface_configured {
+                if state.gpu_context.config.width == 0 || state.gpu_context.config.height == 0 {
                     return;
                 }
                 state.update(elapsed);
