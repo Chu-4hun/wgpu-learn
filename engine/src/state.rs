@@ -3,19 +3,23 @@ use cgmath::prelude::*;
 use egui_wgpu::ScreenDescriptor;
 use std::{path::Path, sync::Arc};
 use tracing::debug;
-use wgpu::{util::DeviceExt, Buffer, RenderPipeline};
+use wgpu::{Buffer, ExperimentalFeatures, RenderPipeline, util::DeviceExt};
 
-use winit::{dpi::PhysicalSize, event::{DeviceEvent, WindowEvent}, window::Window};
+use winit::{
+    dpi::PhysicalSize,
+    event::{DeviceEvent, WindowEvent},
+    window::Window,
+};
 
 use crate::{
+    NUM_INSTANCES_PER_ROW,
     camera::{Camera, CameraUniform},
     camera_controller::CameraController,
     gui::EguiRenderer,
     instance::Instance,
-    model::{DrawModel, Model, ModelVertex, Vertex, INDICES, VERTICES},
+    model::{DrawModel, INDICES, Model, ModelVertex, VERTICES, Vertex},
     resourses::load_model,
     texture::{self, Texture},
-    NUM_INSTANCES_PER_ROW,
 };
 
 pub struct State {
@@ -90,7 +94,8 @@ impl State {
                 wgpu::Limits::default()
             },
             memory_hints: wgpu::MemoryHints::default(),
-            trace: wgpu::Trace::Off
+            trace: wgpu::Trace::Off,
+            experimental_features: ExperimentalFeatures::default(),
         };
         let (device, queue) = adapter.request_device(&device_desc).await.unwrap();
 
@@ -323,7 +328,6 @@ impl State {
         let egui: EguiRenderer = EguiRenderer::new(
             &device,       // wgpu Device
             config.format, // TextureFormat
-            None,          // this can be None
             1,             // samples
             &window,       // winit Window
         );
@@ -436,6 +440,7 @@ impl State {
             false
         }
     }
+
     #[profiling::function]
     pub fn update(&mut self, delta_time: f32) {
         self.camera_controller
@@ -468,7 +473,6 @@ impl State {
 
     #[profiling::function]
     pub fn render(&mut self, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
-
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -495,6 +499,7 @@ impl State {
                     load: wgpu::LoadOp::Clear(clear_color),
                     store: wgpu::StoreOp::Store,
                 },
+                depth_slice: None,
             };
             let render_pass_desc = wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -539,7 +544,7 @@ impl State {
             size_in_pixels: [self.config.width, self.config.height],
             pixels_per_point: self.window().scale_factor() as f32,
         };
-        
+
         profiling::scope!("EGUI render");
         self.egui.draw(
             &self.device,
@@ -549,8 +554,6 @@ impl State {
             &view,
             screen_descriptor,
             |ctx| {
-               
-
                 egui::Window::new("Debug")
                     // .vscroll(true)
                     .title_bar(true)

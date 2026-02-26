@@ -11,45 +11,29 @@ crate-type = ["cdylib", "rlib"]
 anyhow.workspace = true
 bytemuck.workspace = true
 cgmath.workspace = true
+cfg-if.workspace = true
+console_error_panic_hook.workspace = true
+egui.workspace = true
+egui-wgpu.workspace = true
+egui-winit = { workspace = true }
 image.workspace = true
+reqwest.workspace = true
+tobj.workspace = true
+tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
-tracing.workspace = true
+tracing-wasm.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys.workspace = true
+wgpu.workspace = true
+winit.workspace = true
 
-cfg-if = "1.0" 
-console_error_panic_hook = "0.1" 
-egui-wgpu.workspace = true 
-egui-winit.workspace = true 
-egui.workspace = true 
-profiling.workspace = true 
-tobj = {version = "4.0", default-features = false, features = ["async"]} 
-tracing-wasm = "0.2" 
-wasm-bindgen = {version = "0.2", default-features = false} 
-wasm-bindgen-futures = "0.4" 
-web-sys = {version = "0.3", features = [
-  "Document",
-  "Window",
-  "Element",
-  "Location",
-]} 
-wgpu = "25.0.1" #locked to egui.workspace=true= { version = "1.23", features = ["derive"] }
-winit = {version = "0.30", features = ["rwh_05"]} 
-# Other dependencies
-reqwest = {version = "0.12"}
+profiling = { version = "1.0.17" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pollster = "0.4"
+pollster.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-egui-winit = {version = "0.32", default-features = false, features = [
-  "wayland",
-  "x11",
-  "serde",
-]}
+egui-winit = { workspace = true, features = ["wayland", "x11", "serde"] }
 
-[features]
-profile-with-optick = ["profiling/profile-with-optick"]
-profile-with-puffin = ["profiling/profile-with-puffin"]
-profile-with-superluminal = ["profiling/profile-with-superluminal"]
-profile-with-tracing = ["profiling/profile-with-tracing"]
-profile-with-tracy = ["profiling/profile-with-tracy"]
