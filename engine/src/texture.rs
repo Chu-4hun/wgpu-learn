@@ -1,7 +1,7 @@
 use anyhow::*;
 use image::GenericImageView;
 
-use crate::context::GpuContext;
+use crate::gpu::context::GpuContext;
 
 pub struct Texture {
     #[allow(unused)]

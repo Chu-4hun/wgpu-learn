@@ -1,4 +1,4 @@
-use std::sync::Arc;
+pub use std::sync::Arc;
 
 use wgpu::ExperimentalFeatures;
 use winit::{dpi::PhysicalSize, window::Window};

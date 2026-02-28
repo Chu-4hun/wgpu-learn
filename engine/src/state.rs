@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use cgmath::prelude::*;
+use egui::Color32;
 use egui_wgpu::ScreenDescriptor;
 use std::{path::Path, sync::Arc};
 use wgpu::{Buffer, RenderPipeline, util::DeviceExt};
@@ -14,13 +15,12 @@ use crate::{
     NUM_INSTANCES_PER_ROW,
     camera::{Camera, CameraUniform},
     camera_controller::CameraController,
-    context::GpuContext,
+    gpu::{context::GpuContext, pipeline::PipelineBuilder, resource::ShaderResource},
     gui::EguiRenderer,
     instance::{Instance, InstanceRaw},
-    model::{DrawModel, INDICES, Model, ModelVertex, VERTICES, Vertex},
-    pipeline::PipelineBuilder,
+    model::{DrawModel, INDICES, Model, ModelVertex, Vertex},
     resourses::load_model,
-    texture::{self, Texture},
+    texture::Texture,
 };
 
 pub struct State {
@@ -32,13 +32,11 @@ pub struct State {
     pub render_pipeline: RenderPipeline,
     pub line_pipeline: RenderPipeline,
 
-    pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
 
     camera: Camera,
     camera_uniform: CameraUniform,
-    camera_buffer: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup,
+    camera_resource: ShaderResource<CameraUniform>,
 
     camera_controller: CameraController,
     pub egui: EguiRenderer,
@@ -51,6 +49,8 @@ pub struct State {
 
     depth_texture: Texture,
     obj_model: Model,
+
+    color: Color32,
 }
 
 impl State {
@@ -62,18 +62,11 @@ impl State {
         let device = &gpu_context.device;
         let config = &gpu_context.config;
 
-        let texture_bind_group_layout = Texture::create_bind_group_layout(device);
-
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(INDICES),
@@ -81,15 +74,12 @@ impl State {
         });
 
         let camera = Camera {
-            // position the camera 1 unit up and 2 units back
-            // +z is out of the screen
+            //    x    y    z
             eye: (0.0, 1.0, 2.0).into(),
-            // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
-            // which way is "up"
             up: cgmath::Vector3::unit_y(),
             aspect: config.width as f32 / config.height as f32,
-            fovy: 45.0,
+            fovy: 70.0,
             znear: 0.1,
             zfar: 100.0,
         };
@@ -97,45 +87,20 @@ impl State {
 
         camera_uniform.set_view_proj(&camera);
 
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
-            });
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        });
+        let camera_res = ShaderResource::new_uniform(device, "camera", camera_uniform);
 
-        let depth_texture = texture::Texture::create_depth_texture(&gpu_context, "depth_texture");
+        let texture_bind_group_layout = Texture::create_bind_group_layout(device);
+        let depth_texture = Texture::create_depth_texture(&gpu_context, "depth_texture");
 
         let render_pipeline = PipelineBuilder::new(device, config.format)
             .with_label("Render Pipeline")
             .with_shader(&shader)
             .with_entry_points("vs_main", "fs_main")
             .add_layout(&texture_bind_group_layout)
-            .add_layout(&camera_bind_group_layout)
+            .add_layout(camera_res.layout())
             .add_vertex_layout(ModelVertex::desc())
             .add_vertex_layout(InstanceRaw::desc())
-            .with_depth(texture::Texture::DEPTH_FORMAT)
+            .with_depth(Texture::DEPTH_FORMAT)
             .build();
 
         let line_pipeline = PipelineBuilder::new(device, config.format)
@@ -143,19 +108,14 @@ impl State {
             .with_shader(&shader)
             .with_entry_points("vs_main", "fs_main")
             .add_layout(&texture_bind_group_layout)
-            .add_layout(&camera_bind_group_layout)
+            .add_layout(camera_res.layout())
             .add_vertex_layout(ModelVertex::desc())
             .add_vertex_layout(InstanceRaw::desc())
             .with_polygon_mode(wgpu::PolygonMode::Line)
-            .with_depth(texture::Texture::DEPTH_FORMAT)
+            .with_depth(Texture::DEPTH_FORMAT)
             .build();
 
-        let egui: EguiRenderer = EguiRenderer::new(
-            device,       // wgpu Device
-            config.format, // TextureFormat
-            1,             // samples
-            &window,       // winit Window
-        );
+        let egui: EguiRenderer = EguiRenderer::new(device, config.format, 1, &window);
 
         // Convert to a normalized OS-specific PathBuf
 
@@ -210,12 +170,9 @@ impl State {
             window,
             render_pipeline,
             line_pipeline,
-            vertex_buffer,
             index_buffer,
             camera,
             camera_uniform,
-            camera_buffer,
-            camera_bind_group,
             camera_controller,
             egui,
             delay: 0.0,
@@ -225,6 +182,8 @@ impl State {
             free_mouse: true,
             depth_texture,
             obj_model,
+            camera_resource: camera_res,
+            color: Color32::from_rgb(0, 254, 0),
         }
     }
 
@@ -234,8 +193,7 @@ impl State {
 
             self.size = new_size;
 
-            self.depth_texture =
-                texture::Texture::create_depth_texture(&self.gpu_context, "depth_texture");
+            self.depth_texture = Texture::create_depth_texture(&self.gpu_context, "depth_texture");
 
             let center = (new_size.width / 2, new_size.height / 2);
             self.camera_controller.update_screen_center(center);
@@ -266,7 +224,7 @@ impl State {
             .update_camera(&mut self.camera, delta_time);
         self.camera_uniform.set_view_proj(&self.camera);
         self.gpu_context.queue.write_buffer(
-            &self.camera_buffer,
+            self.camera_resource.buffer(),
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
@@ -305,12 +263,13 @@ impl State {
                 });
 
         {
+            let color = self.color.to_normalized_gamma_f32();
             profiling::scope!("clear color render");
             let clear_color = wgpu::Color {
-                r: 0.1,
-                g: 0.3,
-                b: 0.3,
-                a: 1.0,
+                r: color[0] as f64,
+                g: color[1] as f64,
+                b: color[2] as f64,
+                a: color[3] as f64,
             };
             let color_attachment = wgpu::RenderPassColorAttachment {
                 view: &view,
@@ -351,12 +310,12 @@ impl State {
                 render_pass
                     .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-                render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+                render_pass.set_bind_group(1, self.camera_resource.bind_group(), &[]);
 
                 render_pass.draw_model_instanced(
                     &self.obj_model,
                     0..self.instances.len() as u32,
-                    &self.camera_bind_group,
+                    self.camera_resource.bind_group(),
                 );
             }
         }
@@ -394,6 +353,11 @@ impl State {
                         {
                             println!("CHANGED {} {}", self.delay, 1.0 / self.delay);
                         }
+                        ui.add(
+                            egui::Slider::new(&mut self.camera.fovy, 20.0..=100.0)
+                                .text("Camera FOV"),
+                        );
+                        ui.color_edit_button_srgba(&mut self.color);
                         ui.code(
                             egui::RichText::new(format!(
                                 "{:#?}",

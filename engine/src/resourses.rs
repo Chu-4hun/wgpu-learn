@@ -7,7 +7,7 @@ use anyhow::Context;
 use cfg_if::cfg_if;
 use wgpu::util::DeviceExt;
 
-use crate::{context::GpuContext, model, texture};
+use crate::{gpu::context::GpuContext, model, texture};
 
 #[cfg(target_arch = "wasm32")]
 fn format_url(file_name: &str) -> reqwest::Url {

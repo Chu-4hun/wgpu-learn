@@ -1,13 +1,12 @@
 pub mod camera;
 pub mod camera_controller;
-pub mod context;
 pub mod gui;
 pub mod instance;
 pub mod model;
 pub mod resourses;
 pub mod state;
 pub mod texture;
-pub mod pipeline;
+pub mod gpu;
 
 use std::{sync::Arc, time::Instant};
 
