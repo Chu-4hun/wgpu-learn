@@ -183,7 +183,7 @@ impl State {
             depth_texture,
             obj_model,
             camera_resource: camera_res,
-            color: Color32::from_rgb(0, 254, 0),
+            color: Color32::from_rgb(0, 50, 20),
         }
     }
 
