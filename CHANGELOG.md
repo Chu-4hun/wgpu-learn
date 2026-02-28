@@ -1,3 +1,10 @@
+## Start of refactoring
+
+* Move logic from a huge state into modules
+* Building better understanging for wgpu pipeline
+* Just for fun added FOV slider and color picker
+
+![add fov and color picker](https://github.com/user-attachments/assets/7fc063c2-9032-4f6e-8ebd-73d17a66d70a)
 
 ## Add profiler and model textures loading 
 
