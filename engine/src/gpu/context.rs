@@ -1,13 +1,15 @@
 pub use std::sync::Arc;
+use std::sync::RwLock;
 
 use wgpu::ExperimentalFeatures;
 use winit::{dpi::PhysicalSize, window::Window};
 
+#[derive(Debug)]
 pub struct GpuContext {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface<'static>,
-    pub config: wgpu::SurfaceConfiguration,
+    pub config: RwLock<wgpu::SurfaceConfiguration>,
     pub adapter: wgpu::Adapter,
 }
 
@@ -64,7 +66,7 @@ impl GpuContext {
             .find(wgpu::TextureFormat::is_srgb)
             .unwrap_or(surface_caps.formats[0]);
 
-        let config = wgpu::SurfaceConfiguration {
+        let config = RwLock::new(wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
             width: size.width,
@@ -73,11 +75,11 @@ impl GpuContext {
             alpha_mode: surface_caps.alpha_modes[0],
             desired_maximum_frame_latency: 2,
             view_formats: vec![],
-        };
+        });
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            surface.configure(&device, &config);
+            surface.configure(&device, &config.read().unwrap());
         }
 
         Self {
@@ -88,11 +90,19 @@ impl GpuContext {
             adapter,
         }
     }
-    pub fn resize(&mut self, new_size: &PhysicalSize<u32>) {
+    pub fn resize(&self, new_size: &PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
+            {
+                let mut conf = self.config.write().unwrap();
+                conf.width = new_size.width;
+                conf.height = new_size.height;
+            }
+            self.surface
+                .configure(&self.device, &self.config.read().unwrap());
         }
+    }
+    
+    pub fn config(&self) -> std::sync::RwLockReadGuard<'_, wgpu::SurfaceConfiguration> {
+        self.config.read().unwrap()
     }
 }

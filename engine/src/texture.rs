@@ -15,7 +15,7 @@ impl Texture {
 
     pub fn create_depth_texture(gpu_context: &GpuContext, label: &str) -> Self {
         let device = &gpu_context.device;
-        let config = &gpu_context.config;
+        let config = &gpu_context.config();
         let size = wgpu::Extent3d {
             width: config.width.max(1),
             height: config.height.max(1),

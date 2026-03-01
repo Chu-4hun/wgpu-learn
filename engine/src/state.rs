@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use cgmath::prelude::*;
 use egui::Color32;
 use egui_wgpu::ScreenDescriptor;
@@ -13,13 +13,13 @@ use winit::{
 
 use crate::{
     NUM_INSTANCES_PER_ROW,
+    asset_manager::AssetManager,
     camera::{Camera, CameraUniform},
     camera_controller::CameraController,
     gpu::{context::GpuContext, pipeline::PipelineBuilder, resource::ShaderResource},
     gui::EguiRenderer,
     instance::{Instance, InstanceRaw},
     model::{DrawModel, INDICES, Model, ModelVertex, Vertex},
-    resourses::load_model,
     texture::Texture,
 };
 
@@ -27,7 +27,7 @@ pub struct State {
     pub size: PhysicalSize<u32>,
     pub window: Arc<Window>,
 
-    pub gpu_context: GpuContext,
+    pub gpu_context: Arc<GpuContext>,
 
     pub render_pipeline: RenderPipeline,
     pub line_pipeline: RenderPipeline,
@@ -48,7 +48,7 @@ pub struct State {
     pub free_mouse: bool,
 
     depth_texture: Texture,
-    obj_model: Model,
+    obj_model: Arc<Model>,
 
     color: Color32,
 }
@@ -57,28 +57,35 @@ impl State {
     pub async fn new(window: Arc<Window>) -> State {
         let size = window.inner_size();
 
-        let gpu_context = GpuContext::new(window.clone()).await;
+        let gpu_context = Arc::new(GpuContext::new(window.clone()).await);
 
-        let device = &gpu_context.device;
-        let config = &gpu_context.config;
+        let mut asset_manager = AssetManager::new(gpu_context.clone());
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
-        });
+        let shader =
+            gpu_context
+                .as_ref()
+                .device
+                .create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("Shader"),
+                    source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
+                });
 
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        let index_buffer =
+            gpu_context
+                .as_ref()
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Index Buffer"),
+                    contents: bytemuck::cast_slice(INDICES),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
 
         let camera = Camera {
             //    x    y    z
             eye: (0.0, 1.0, 2.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
-            aspect: config.width as f32 / config.height as f32,
+            aspect: gpu_context.config().width as f32 / gpu_context.config().height as f32,
             fovy: 70.0,
             znear: 0.1,
             zfar: 100.0,
@@ -87,47 +94,45 @@ impl State {
 
         camera_uniform.set_view_proj(&camera);
 
-        let camera_res = ShaderResource::new_uniform(device, "camera", camera_uniform);
+        let camera_res =
+            ShaderResource::new_uniform(&gpu_context.as_ref().device, "camera", camera_uniform);
 
-        let texture_bind_group_layout = Texture::create_bind_group_layout(device);
         let depth_texture = Texture::create_depth_texture(&gpu_context, "depth_texture");
 
-        let render_pipeline = PipelineBuilder::new(device, config.format)
-            .with_label("Render Pipeline")
-            .with_shader(&shader)
-            .with_entry_points("vs_main", "fs_main")
-            .add_layout(&texture_bind_group_layout)
-            .add_layout(camera_res.layout())
-            .add_vertex_layout(ModelVertex::desc())
-            .add_vertex_layout(InstanceRaw::desc())
-            .with_depth(Texture::DEPTH_FORMAT)
-            .build();
+        let render_pipeline =
+            PipelineBuilder::new(&gpu_context.as_ref().device, gpu_context.config().format)
+                .with_label("Render Pipeline")
+                .with_shader(&shader)
+                .with_entry_points("vs_main", "fs_main")
+                .add_layout(asset_manager.texture_layout())
+                .add_layout(camera_res.layout())
+                .add_vertex_layout(ModelVertex::desc())
+                .add_vertex_layout(InstanceRaw::desc())
+                .with_depth(Texture::DEPTH_FORMAT)
+                .build();
 
-        let line_pipeline = PipelineBuilder::new(device, config.format)
-            .with_label("Wireframe Render Pipeline")
-            .with_shader(&shader)
-            .with_entry_points("vs_main", "fs_main")
-            .add_layout(&texture_bind_group_layout)
-            .add_layout(camera_res.layout())
-            .add_vertex_layout(ModelVertex::desc())
-            .add_vertex_layout(InstanceRaw::desc())
-            .with_polygon_mode(wgpu::PolygonMode::Line)
-            .with_depth(Texture::DEPTH_FORMAT)
-            .build();
+        let line_pipeline =
+            PipelineBuilder::new(&gpu_context.as_ref().device, gpu_context.config().format)
+                .with_label("Wireframe Render Pipeline")
+                .with_shader(&shader)
+                .with_entry_points("vs_main", "fs_main")
+                .add_layout(asset_manager.texture_layout())
+                .add_layout(camera_res.layout())
+                .add_vertex_layout(ModelVertex::desc())
+                .add_vertex_layout(InstanceRaw::desc())
+                .with_polygon_mode(wgpu::PolygonMode::Line)
+                .with_depth(Texture::DEPTH_FORMAT)
+                .build();
 
-        let egui: EguiRenderer = EguiRenderer::new(device, config.format, 1, &window);
+        let egui: EguiRenderer = EguiRenderer::new(
+            &gpu_context.as_ref().device,
+            gpu_context.config().format,
+            1,
+            &window,
+        );
 
-        // Convert to a normalized OS-specific PathBuf
-
-        let obj_model = load_model(
-            Path::new("models/cube/cube.obj"),
-            &gpu_context,
-            &texture_bind_group_layout,
-        )
-        .await
-        .context("unable to load model models/cube/cube.obj")
-        .unwrap();
-
+       let obj_model=  asset_manager.load_obj(Path::new("models/cube/cube.obj")).await.unwrap();
+       
         let center = (
             window.inner_size().width / 2,
             window.inner_size().height / 2,
@@ -158,11 +163,14 @@ impl State {
             .collect::<Vec<_>>();
 
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        });
+        let instance_buffer =
+            gpu_context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Instance Buffer"),
+                    contents: bytemuck::cast_slice(&instance_data),
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
 
         Self {
             size,
@@ -321,8 +329,8 @@ impl State {
         }
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [
-                self.gpu_context.config.width,
-                self.gpu_context.config.height,
+                self.gpu_context.config().width,
+                self.gpu_context.config().height,
             ],
             pixels_per_point: self.window().scale_factor() as f32,
         };

@@ -7,6 +7,7 @@ pub mod resourses;
 pub mod state;
 pub mod texture;
 pub mod gpu;
+pub mod asset_manager;
 
 use std::{sync::Arc, time::Instant};
 
@@ -198,7 +199,7 @@ impl ApplicationHandler<UserEvent> for App {
                 let start = Instant::now();
                 let elapsed = (start - self.frame_time).as_secs_f32();
 
-                if state.gpu_context.config.width == 0 || state.gpu_context.config.height == 0 {
+                if state.gpu_context.config().width == 0 || state.gpu_context.config().height == 0 {
                     return;
                 }
                 state.update(elapsed);

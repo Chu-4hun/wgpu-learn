@@ -9,22 +9,32 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow.workspace = true
+async-trait.workspace = true
 bytemuck.workspace = true
-cgmath.workspace = true
 cfg-if.workspace = true
+cgmath.workspace = true
 console_error_panic_hook.workspace = true
-egui.workspace = true
+
+futures-lite.workspace = true
+
 egui-wgpu.workspace = true
 egui-winit = { workspace = true }
+egui.workspace = true
+
 image.workspace = true
 reqwest.workspace = true
 tobj.workspace = true
-tracing.workspace = true
+
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
 tracing-wasm.workspace = true
-wasm-bindgen.workspace = true
+tracing.workspace = true
+
+url.workspace = true
+
 wasm-bindgen-futures.workspace = true
+wasm-bindgen.workspace = true
+
 web-sys.workspace = true
 wgpu.workspace = true
 winit.workspace = true

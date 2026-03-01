@@ -5,6 +5,7 @@ members = ["engine", "app"]
 
 [workspace.dependencies]
 anyhow = "1.0"
+async-trait = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
@@ -16,11 +17,13 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 cfg-if = "1.0"
 cgmath = "0.18"
 
+futures-lite = "2.6.1"
+
 egui = "0.33"
 egui-wgpu = "0.33"
 egui-winit = { version = "0.33", default-features = false }
 
-tobj = { version = "4.0", default-features = false, features = ["async"] }
+tobj = { version = "4.0", default-features = false, features = ["async", "futures"] }
 
 console_error_panic_hook = "0.1"
 wasm-bindgen = { version = "0.2", default-features = false }
@@ -29,6 +32,8 @@ web-sys = { version = "0.3", features = ["Document", "Window", "Element", "Locat
 
 reqwest = { version = "0.13" }
 pollster = "0.4"
+
+url = "2.5.8"
 
 [workspace.build-dependencies]
 anyhow = "1.0"
