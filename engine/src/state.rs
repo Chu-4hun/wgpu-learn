@@ -37,8 +37,8 @@ pub struct State {
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_resource: ShaderResource<CameraUniform>,
-
     camera_controller: CameraController,
+
     pub egui: EguiRenderer,
     pub delay: f32,
 
@@ -345,13 +345,11 @@ impl State {
             screen_descriptor,
             |ctx| {
                 egui::Window::new("Debug")
-                    // .vscroll(true)
                     .title_bar(true)
                     .collapsible(true)
                     .default_open(false)
                     // .resizable(false)
                     .movable(true)
-                    // .anchor(egui::Align2::LEFT_TOP, [10.0, 10.0])
                     .show(ctx, |ui| {
                         ui.label(format!("FPS: {:.1}", 1.0 / delta_time));
                         ui.label(format!("Frame Time: {:.2}ms", delta_time * 1000.0));
@@ -362,7 +360,7 @@ impl State {
                             println!("CHANGED {} {}", self.delay, 1.0 / self.delay);
                         }
                         ui.add(
-                            egui::Slider::new(&mut self.camera.fovy, 20.0..=100.0)
+                            egui::Slider::new(&mut self.camera.fovy, 5.0..=100.0)
                                 .text("Camera FOV"),
                         );
                         ui.color_edit_button_srgba(&mut self.color);
@@ -373,23 +371,14 @@ impl State {
                             ))
                             .code(),
                         );
-
-                        // if ui.add(egui::Button::new("Click me")).clicked() {
-                        //     println!("PRESSED")
-                        // }CHANGED
-
-                        // ui.label(format!("Slider {}", egui::special_emojis::OS_LINUX));
-                        // ui.add(egui::Slider::new(_, 0..=120).text("age"));
                         ui.end_row();
-
-                        // proto_scene.egui(ui);
                     });
             },
         );
         if self.delay > 0.0 {
             // make frame cap from target fps
-            let target_frame_time = 1.0 / self.delay; // Time per frame in secondst screen_descriptor = ScreenDescriptor {
-            let delay = (target_frame_time - delta_time) * 1000.0; // Delay needed to achieve target FPSels: [self.config.width, self.config.height],
+            let target_frame_time = 1.0 / self.delay;
+            let delay = (target_frame_time - delta_time) * 1000.0;
 
             std::thread::sleep(std::time::Duration::from_millis(delay as u64));
         };

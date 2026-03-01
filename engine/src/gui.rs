@@ -1,7 +1,7 @@
 use egui::epaint::Shadow;
 use egui::{Context, Visuals};
-use egui_wgpu::{Renderer, RendererOptions};
 use egui_wgpu::ScreenDescriptor;
+use egui_wgpu::{Renderer, RendererOptions};
 
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::winit::window::Window;
@@ -41,7 +41,12 @@ impl EguiRenderer {
         let egui_renderer = Renderer::new(
             device,
             output_color_format,
-            RendererOptions{ msaa_samples, depth_stencil_format: None, dithering: true, predictable_texture_filtering: false }
+            RendererOptions {
+                msaa_samples,
+                depth_stencil_format: None,
+                dithering: true,
+                predictable_texture_filtering: false,
+            },
         );
 
         EguiRenderer {
@@ -63,7 +68,7 @@ impl EguiRenderer {
         window: &Window,
         window_surface_view: &TextureView,
         screen_descriptor: ScreenDescriptor,
-        mut run_ui: impl FnMut(&Context), 
+        mut run_ui: impl FnMut(&Context),
     ) {
         // self.state.set_pixels_per_point(window.scale_factor() as f32);
         let raw_input = self.state.take_egui_input(window);
@@ -111,26 +116,4 @@ impl EguiRenderer {
             self.renderer.free_texture(x)
         }
     }
-}
-
-pub fn gui(ui: &Context) {
-    egui::Window::new("Streamline CFD")
-        .vscroll(true)
-        .default_open(true)
-        // .max_width(1000.0)
-        // .max_height(800.0)
-        .default_width(800.0)
-        .resizable(true)
-        // .anchor(Align2::LEFT_TOP, [0.0, 0.0])
-        .show(ui, |ui| {
-            if ui.add(egui::Button::new("Click me")).clicked() {
-                println!("PRESSED")
-            }
-
-            ui.label("Slider");
-            // ui.add(egui::Slider::new(_, 0..=120).text("age"));
-            ui.end_row();
-
-            // proto_scene.egui(ui);
-        });
 }
