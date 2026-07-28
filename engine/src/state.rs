@@ -115,8 +115,8 @@ impl State {
                 .with_entry_points("vs_main", "fs_main")
                 .add_layout(asset_manager.texture_layout())
                 .add_layout(camera_res.layout())
-                .add_vertex_layout(ModelVertex::desc())
-                .add_vertex_layout(InstanceRaw::desc())
+                .add_vertex_layout(Some(ModelVertex::desc()))
+                .add_vertex_layout(Some(InstanceRaw::desc()))
                 .with_depth(Texture::DEPTH_FORMAT)
                 .build();
 
@@ -127,8 +127,8 @@ impl State {
                 .with_entry_points("vs_main", "fs_main")
                 .add_layout(asset_manager.texture_layout())
                 .add_layout(camera_res.layout())
-                .add_vertex_layout(ModelVertex::desc())
-                .add_vertex_layout(InstanceRaw::desc())
+                .add_vertex_layout(Some(ModelVertex::desc()))
+                .add_vertex_layout(Some(InstanceRaw::desc()))
                 .with_polygon_mode(wgpu::PolygonMode::Line)
                 .with_depth(Texture::DEPTH_FORMAT)
                 .build();
@@ -404,7 +404,8 @@ impl State {
         self.gpu_context
             .queue
             .submit(std::iter::once(encoder.finish()));
-        output.present();
+        
+        self.gpu_context.queue.present(output);
 
         profiling::finish_frame!();
         Ok(())

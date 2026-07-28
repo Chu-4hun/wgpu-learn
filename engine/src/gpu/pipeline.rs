@@ -4,7 +4,7 @@ pub struct PipelineBuilder<'a> {
     shader: Option<&'a wgpu::ShaderModule>,
     vertex_entry: String,
     fragment_entry: String,
-    vertex_layouts: Vec<wgpu::VertexBufferLayout<'static>>,
+    vertex_layouts: Vec<Option<wgpu::VertexBufferLayout<'static>>>,
     bind_group_layouts: Vec<Option<&'a wgpu::BindGroupLayout>>,
     target_format: wgpu::TextureFormat,
     depth_format: Option<wgpu::TextureFormat>,
@@ -48,7 +48,7 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    pub fn add_vertex_layout(mut self, layout: wgpu::VertexBufferLayout<'static>) -> Self {
+    pub fn add_vertex_layout(mut self, layout: Option<wgpu::VertexBufferLayout<'static>>) -> Self {
         self.vertex_layouts.push(layout);
         self
     }

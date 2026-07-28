@@ -27,6 +27,7 @@ impl GpuContext {
                 power_preference: wgpu::PowerPreference::default(),
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
+                apply_limit_buckets: false,
             })
             .await
             .unwrap();
@@ -65,6 +66,7 @@ impl GpuContext {
             alpha_mode: surface_caps.alpha_modes[0],
             desired_maximum_frame_latency: 2,
             view_formats: vec![],
+            color_space: wgpu::SurfaceColorSpace::Srgb,
         });
 
         #[cfg(not(target_arch = "wasm32"))]
