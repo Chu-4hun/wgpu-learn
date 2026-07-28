@@ -1,4 +1,3 @@
-use egui::epaint::Shadow;
 use egui::{Context, Visuals};
 use egui_wgpu::ScreenDescriptor;
 use egui_wgpu::{Renderer, RendererOptions};
@@ -22,20 +21,26 @@ impl EguiRenderer {
         window: &Window,
     ) -> EguiRenderer {
         let egui_context = Context::default();
-        let id = egui_context.viewport_id();
 
         const BORDER_RADIUS: u8 = 2;
 
         let visuals = Visuals {
             menu_corner_radius: egui::CornerRadius::same(BORDER_RADIUS),
-            window_shadow: Shadow::NONE,
-            // menu_rounding: todo!(),
             ..Default::default()
         };
 
         egui_context.set_visuals(visuals);
 
-        let egui_state = State::new(egui_context.clone(), id, &window, None, None, None);
+        let egui_context_clone = egui_context.clone();
+        let viewport_id = egui_context_clone.viewport_id();
+        let egui_state = State::new(
+            egui_context_clone,
+            viewport_id,
+            &window,
+            None,
+            None,
+            None,
+        );
 
         // egui_state.set_pixels_per_point(window.scale_factor() as f32);
         let egui_renderer = Renderer::new(
@@ -72,9 +77,8 @@ impl EguiRenderer {
     ) {
         // self.state.set_pixels_per_point(window.scale_factor() as f32);
         let raw_input = self.state.take_egui_input(window);
-        let ctx_ref = &self.context;
-        let full_output = self.context.run(raw_input, |_| {
-            run_ui(ctx_ref); // No longer moves `run_ui` since it's FnMut
+        let full_output = self.context.run_ui(raw_input, |ctx| {
+            run_ui(ctx);
         });
 
         self.state
@@ -102,6 +106,7 @@ impl EguiRenderer {
                     depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
+                multiview_mask: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             };

@@ -5,6 +5,15 @@ use egui_wgpu::ScreenDescriptor;
 use std::{path::Path, sync::Arc};
 use wgpu::{Buffer, RenderPipeline, util::DeviceExt};
 
+#[derive(Debug)]
+pub enum RenderError {
+    Lost,
+    Outdated,
+    OutOfMemory,
+    Timeout,
+    Other,
+}
+
 use winit::{
     dpi::PhysicalSize,
     event::{DeviceEvent, WindowEvent},
@@ -257,8 +266,16 @@ impl State {
     }
 
     #[profiling::function]
-    pub fn render(&mut self, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
-        let output = self.gpu_context.surface.get_current_texture()?;
+    pub fn render(&mut self, delta_time: f32) -> Result<(), RenderError> {
+        let output = match self.gpu_context.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
+            wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
+            wgpu::CurrentSurfaceTexture::Timeout => return Err(RenderError::Timeout),
+            wgpu::CurrentSurfaceTexture::Occluded => return Ok(()),
+            wgpu::CurrentSurfaceTexture::Outdated => return Err(RenderError::Outdated),
+            wgpu::CurrentSurfaceTexture::Lost => return Err(RenderError::Lost),
+            wgpu::CurrentSurfaceTexture::Validation => return Err(RenderError::Other),
+        };
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -299,6 +316,7 @@ impl State {
                     }),
                     stencil_ops: None,
                 }),
+                multiview_mask: None,
                 occlusion_query_set: None,
                 timestamp_writes: None,
             };

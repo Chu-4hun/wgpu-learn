@@ -5,7 +5,7 @@ pub struct PipelineBuilder<'a> {
     vertex_entry: String,
     fragment_entry: String,
     vertex_layouts: Vec<wgpu::VertexBufferLayout<'static>>,
-    bind_group_layouts: Vec<&'a wgpu::BindGroupLayout>,
+    bind_group_layouts: Vec<Option<&'a wgpu::BindGroupLayout>>,
     target_format: wgpu::TextureFormat,
     depth_format: Option<wgpu::TextureFormat>,
     polygon_mode: wgpu::PolygonMode,
@@ -44,7 +44,7 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn add_layout(mut self, layout: &'a wgpu::BindGroupLayout) -> Self {
-        self.bind_group_layouts.push(layout);
+        self.bind_group_layouts.push(Some(layout));
         self
     }
 
@@ -104,7 +104,7 @@ impl<'a> PipelineBuilder<'a> {
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some(&format!("{} Layout", self.label)),
                 bind_group_layouts: &self.bind_group_layouts,
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         self.device
@@ -137,13 +137,13 @@ impl<'a> PipelineBuilder<'a> {
                 },
                 depth_stencil: self.depth_format.map(|format| wgpu::DepthStencilState {
                     format,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
+                    depth_write_enabled: Some(true),
+                    depth_compare: Some(wgpu::CompareFunction::Less),
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
                 }),
                 multisample: wgpu::MultisampleState::default(),
-                multiview: None,
+                multiview_mask: None,
                 cache: None,
             })
     }

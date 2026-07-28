@@ -1,7 +1,6 @@
 pub use std::sync::Arc;
 use std::sync::RwLock;
 
-use wgpu::ExperimentalFeatures;
 use winit::{dpi::PhysicalSize, window::Window};
 
 #[derive(Debug)]
@@ -19,16 +18,7 @@ impl GpuContext {
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
-        let instance_desc = wgpu::InstanceDescriptor {
-            #[cfg(target_arch = "wasm32")]
-            backends: if cfg!(not(target_arch = "wasm32")) {
-                wgpu::Backends::PRIMARY
-            } else {
-                wgpu::Backends::GL
-            },
-            ..Default::default()
-        };
-        let instance = wgpu::Instance::new(&instance_desc);
+        let instance = wgpu::Instance::default();
 
         let surface = instance.create_surface(window.clone()).unwrap();
 
@@ -53,7 +43,7 @@ impl GpuContext {
             },
             memory_hints: wgpu::MemoryHints::default(),
             trace: wgpu::Trace::Off,
-            experimental_features: ExperimentalFeatures::default(),
+            experimental_features: wgpu::ExperimentalFeatures::default(),
         };
         let (device, queue) = adapter.request_device(&device_desc).await.unwrap();
 

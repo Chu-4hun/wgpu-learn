@@ -205,20 +205,20 @@ impl ApplicationHandler<UserEvent> for App {
                 match state.render(elapsed) {
                     Ok(()) => {}
                     // Reconfigure the surface if it's lost or outdated
-                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                    Err(state::RenderError::Lost | state::RenderError::Outdated) => {
                         state.resize(state.size);
                     }
                     // The system is out of memory, we should probably quit
-                    Err(wgpu::SurfaceError::OutOfMemory) => {
+                    Err(state::RenderError::OutOfMemory) => {
                         tracing::error!("OutOfMemory");
                         event_loop.exit();
                     }
 
                     // This happens when the frame takes too long to present
-                    Err(wgpu::SurfaceError::Timeout) => {
+                    Err(state::RenderError::Timeout) => {
                         tracing::warn!("Surface timeout");
                     }
-                    Err(wgpu::SurfaceError::Other) => {
+                    Err(state::RenderError::Other) => {
                         tracing::error!("SurfaceError");
                         event_loop.exit();
                     }

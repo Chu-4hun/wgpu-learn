@@ -35,7 +35,6 @@ fn vs_main(
     out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
     return out;
 }
- 
 
 @group(0) @binding(0)
 var t_diffuse: texture_2d<f32>;
