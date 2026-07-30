@@ -1,12 +1,14 @@
+pub mod asset_manager;
 pub mod camera;
 pub mod camera_controller;
+pub mod gpu;
 pub mod gui;
 pub mod instance;
 pub mod model;
+pub mod renderer;
+pub mod scene;
 pub mod state;
 pub mod texture;
-pub mod gpu;
-pub mod asset_manager;
 
 use std::{sync::Arc, time::Instant};
 
@@ -190,7 +192,6 @@ impl ApplicationHandler<UserEvent> for App {
                 state.draw_lines = !state.draw_lines;
             }
             WindowEvent::Resized(physical_size) => {
-                
                 state.resize(physical_size);
                 // tracing::info!("physical_size: {physical_size:?}");
             }
@@ -198,9 +199,7 @@ impl ApplicationHandler<UserEvent> for App {
                 let start = Instant::now();
                 let elapsed = (start - self.frame_time).as_secs_f32();
 
-                if state.gpu_context.config().width == 0 || state.gpu_context.config().height == 0 {
-                    return;
-                }
+                
                 state.update(elapsed);
                 match state.render(elapsed) {
                     Ok(()) => {}
@@ -222,6 +221,8 @@ impl ApplicationHandler<UserEvent> for App {
                         tracing::error!("SurfaceError");
                         event_loop.exit();
                     }
+
+                    Err(state::RenderError::Occluded) => {}
                 }
 
                 self.frame_time = start;

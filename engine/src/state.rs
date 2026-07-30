@@ -1,14 +1,14 @@
 use anyhow::Result;
 use cgmath::prelude::*;
-use egui::Color32;
 use egui_wgpu::ScreenDescriptor;
 use std::{path::Path, sync::Arc};
-use wgpu::{Buffer, RenderPipeline, util::DeviceExt};
+use wgpu::{Color, util::DeviceExt};
 
 #[derive(Debug)]
 pub enum RenderError {
     Lost,
     Outdated,
+    Occluded,
     OutOfMemory,
     Timeout,
     Other,
@@ -25,23 +25,16 @@ use crate::{
     asset_manager::AssetManager,
     camera::{Camera, CameraUniform},
     camera_controller::CameraController,
-    gpu::{context::GpuContext, pipeline::PipelineBuilder, resource::ShaderResource},
+    gpu::{context::GpuContext, resource::ShaderResource},
     gui::EguiRenderer,
-    instance::{Instance, InstanceRaw},
-    model::{DrawModel, INDICES, Model, ModelVertex, Vertex},
-    texture::Texture,
+    instance::Instance,
+    model::Model ,
+    renderer::{DrawParams, Renderer},
 };
 
 pub struct State {
     pub size: PhysicalSize<u32>,
     pub window: Arc<Window>,
-
-    pub gpu_context: Arc<GpuContext>,
-
-    pub render_pipeline: RenderPipeline,
-    pub line_pipeline: RenderPipeline,
-
-    pub index_buffer: Buffer,
 
     camera: Camera,
     camera_uniform: CameraUniform,
@@ -53,42 +46,26 @@ pub struct State {
 
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
-    pub draw_lines: bool,
+
     pub free_mouse: bool,
 
-    depth_texture: Texture,
     obj_model: Arc<Model>,
 
-    color: Color32,
+    renderer: Renderer,
+    pub draw_lines: bool,
 }
 
 impl State {
     pub async fn new(window: Arc<Window>) -> State {
         let size = window.inner_size();
 
-        let gpu_context = Arc::new(GpuContext::new(window.clone()).await);
+        let gpu_context: Arc<GpuContext> = Arc::new(GpuContext::new(window.clone()).await);
 
         let mut asset_manager = AssetManager::new(gpu_context.clone());
 
-        let shader =
-            gpu_context
-                .as_ref()
-                .device
-                .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: Some("Shader"),
-                    source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
-                });
+        let renderer: Renderer = Renderer::new(gpu_context.clone()).await;
 
-        let index_buffer =
-            gpu_context
-                .as_ref()
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Index Buffer"),
-                    contents: bytemuck::cast_slice(INDICES),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-
+       
         let camera = Camera {
             //    x    y    z
             eye: (0.0, 1.0, 2.0).into(),
@@ -106,33 +83,7 @@ impl State {
         let camera_res =
             ShaderResource::new_uniform(&gpu_context.as_ref().device, "camera", camera_uniform);
 
-        let depth_texture = Texture::create_depth_texture(&gpu_context, "depth_texture");
-
-        let render_pipeline =
-            PipelineBuilder::new(&gpu_context.as_ref().device, gpu_context.config().format)
-                .with_label("Render Pipeline")
-                .with_shader(&shader)
-                .with_entry_points("vs_main", "fs_main")
-                .add_layout(asset_manager.texture_layout())
-                .add_layout(camera_res.layout())
-                .add_vertex_layout(Some(ModelVertex::desc()))
-                .add_vertex_layout(Some(InstanceRaw::desc()))
-                .with_depth(Texture::DEPTH_FORMAT)
-                .build();
-
-        let line_pipeline =
-            PipelineBuilder::new(&gpu_context.as_ref().device, gpu_context.config().format)
-                .with_label("Wireframe Render Pipeline")
-                .with_shader(&shader)
-                .with_entry_points("vs_main", "fs_main")
-                .add_layout(asset_manager.texture_layout())
-                .add_layout(camera_res.layout())
-                .add_vertex_layout(Some(ModelVertex::desc()))
-                .add_vertex_layout(Some(InstanceRaw::desc()))
-                .with_polygon_mode(wgpu::PolygonMode::Line)
-                .with_depth(Texture::DEPTH_FORMAT)
-                .build();
-
+     
         let egui: EguiRenderer = EguiRenderer::new(
             &gpu_context.as_ref().device,
             gpu_context.config().format,
@@ -140,8 +91,11 @@ impl State {
             &window,
         );
 
-       let obj_model=  asset_manager.load_obj(Path::new("models/cube/cube.obj")).await.unwrap();
-       
+        let obj_model = asset_manager
+            .load_obj(Path::new("models/cube/cube.obj"))
+            .await
+            .unwrap();
+
         let center = (
             window.inner_size().width / 2,
             window.inner_size().height / 2,
@@ -183,11 +137,7 @@ impl State {
 
         Self {
             size,
-            gpu_context,
             window,
-            render_pipeline,
-            line_pipeline,
-            index_buffer,
             camera,
             camera_uniform,
             camera_controller,
@@ -195,26 +145,21 @@ impl State {
             delay: 0.0,
             instance_buffer,
             instances,
-            draw_lines: false,
             free_mouse: true,
-            depth_texture,
             obj_model,
             camera_resource: camera_res,
-            color: Color32::from_rgb(0, 50, 20),
+            renderer,
+            draw_lines: false
         }
     }
 
     pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
-            self.gpu_context.resize(&new_size);
-
-            self.size = new_size;
-
-            self.depth_texture = Texture::create_depth_texture(&self.gpu_context, "depth_texture");
+            self.renderer.resize(&new_size);
 
             let center = (new_size.width / 2, new_size.height / 2);
-            self.camera_controller.update_screen_center(center);
 
+            self.camera_controller.update_screen_center(center);
             self.camera.aspect = new_size.width as f32 / new_size.height as f32;
             self.camera_uniform.set_view_proj(&self.camera);
         }
@@ -239,12 +184,7 @@ impl State {
     pub fn update(&mut self, delta_time: f32) {
         self.camera_controller
             .update_camera(&mut self.camera, delta_time);
-        self.camera_uniform.set_view_proj(&self.camera);
-        self.gpu_context.queue.write_buffer(
-            self.camera_resource.buffer(),
-            0,
-            bytemuck::cast_slice(&[self.camera_uniform]),
-        );
+
         let angle = cgmath::Rad(delta_time * 2.0);
         let rotation_delta =
             cgmath::Quaternion::from_axis_angle(cgmath::Vector3::new(0.0, 0.0, 1.0), angle);
@@ -252,147 +192,79 @@ impl State {
         for inst in &mut self.instances {
             inst.rotation = inst.rotation * rotation_delta;
         }
+
         let instance_data = self
             .instances
             .iter()
             .map(Instance::to_raw)
             .collect::<Vec<_>>();
-
-        self.gpu_context.queue.write_buffer(
-            &self.instance_buffer,
-            0,
-            bytemuck::cast_slice(&instance_data),
-        );
+        self.renderer
+            .update_instances(&self.instance_buffer, &instance_data);
     }
 
     #[profiling::function]
     pub fn render(&mut self, delta_time: f32) -> Result<(), RenderError> {
-        let output = match self.gpu_context.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
-            wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
-            wgpu::CurrentSurfaceTexture::Timeout => return Err(RenderError::Timeout),
-            wgpu::CurrentSurfaceTexture::Occluded => return Ok(()),
-            wgpu::CurrentSurfaceTexture::Outdated => return Err(RenderError::Outdated),
-            wgpu::CurrentSurfaceTexture::Lost => return Err(RenderError::Lost),
-            wgpu::CurrentSurfaceTexture::Validation => return Err(RenderError::Other),
-        };
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder =
-            self.gpu_context
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render Encoder"),
-                });
-
-        {
-            let color = self.color.to_normalized_gamma_f32();
-            profiling::scope!("clear color render");
-            let clear_color = wgpu::Color {
-                r: color[0] as f64,
-                g: color[1] as f64,
-                b: color[2] as f64,
-                a: color[3] as f64,
-            };
-            let color_attachment = wgpu::RenderPassColorAttachment {
-                view: &view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(clear_color),
-                    store: wgpu::StoreOp::Store,
-                },
-                depth_slice: None,
-            };
-            let render_pass_desc = wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(color_attachment)],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
-                multiview_mask: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            };
-
-            {
-                profiling::scope!("render pass");
-
-                let mut render_pass = encoder.begin_render_pass(&render_pass_desc);
-                if self.draw_lines {
-                    render_pass.set_pipeline(&self.line_pipeline);
-                } else {
-                    render_pass.set_pipeline(&self.render_pipeline);
-                }
-
-                render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-
-                render_pass
-                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-                render_pass.set_bind_group(1, self.camera_resource.bind_group(), &[]);
-
-                render_pass.draw_model_instanced(
-                    &self.obj_model,
-                    0..self.instances.len() as u32,
-                    self.camera_resource.bind_group(),
-                );
-            }
+        if self.renderer.is_zero_sized() {
+            return Ok(());
         }
-        let screen_descriptor = ScreenDescriptor {
-            size_in_pixels: [
-                self.gpu_context.config().width,
-                self.gpu_context.config().height,
-            ],
-            pixels_per_point: self.window().scale_factor() as f32,
-        };
 
-        profiling::scope!("EGUI render");
+        let mut frame = self.renderer.begin_frame().unwrap();
+
+        self.renderer.draw(
+            &mut frame,
+            DrawParams {
+                camera: &self.camera,
+                model: &self.obj_model,
+                instance_buffer: &self.instance_buffer,
+                instance_count: self.instances.len() as u32,
+                draw_lines: self.draw_lines,
+                clear_color: Color {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 1.0,
+                },
+            },
+        );
+
+        let screen_descriptor = ScreenDescriptor {
+            size_in_pixels: [self.renderer.width(), self.renderer.height()],
+            pixels_per_point: self.window.scale_factor() as f32,
+        };
+        let gpu_context = self.renderer.gpu_context();
+        let device = &gpu_context.device;
+        let queue = &gpu_context.queue;
+
+        let (encoder, view) = frame.encoder_and_view();
+
+        let delay = &mut self.delay;
+        let fovy = &mut self.camera.fovy;
+        let color = &mut self.renderer.clear_color;
+        let camera_state = self.camera_controller.get_camera_state(); // owned value, borrow ends here
+
         self.egui.draw(
-            &self.gpu_context.device,
-            &self.gpu_context.queue,
-            &mut encoder,
+            device,
+            queue,
+            encoder,
             &self.window,
-            &view,
+            view,
             screen_descriptor,
             |ctx| {
                 egui::Window::new("Debug")
-                    .title_bar(true)
                     .collapsible(true)
                     .default_open(false)
-                    // .resizable(false)
                     .movable(true)
                     .show(ctx, |ui| {
                         ui.label(format!("FPS: {:.1}", 1.0 / delta_time));
                         ui.label(format!("Frame Time: {:.2}ms", delta_time * 1000.0));
-                        if ui
-                            .add(egui::Slider::new(&mut self.delay, 0.0..=240.0).text("Max fps"))
-                            .changed()
-                        {
-                            println!("CHANGED {} {}", self.delay, 1.0 / self.delay);
-                        }
-                        ui.add(
-                            egui::Slider::new(&mut self.camera.fovy, 5.0..=100.0)
-                                .text("Camera FOV"),
-                        );
-                        ui.color_edit_button_srgba(&mut self.color);
-                        ui.code(
-                            egui::RichText::new(format!(
-                                "{:#?}",
-                                self.camera_controller.get_camera_state()
-                            ))
-                            .code(),
-                        );
-                        ui.end_row();
+                        ui.add(egui::Slider::new(delay, 0.0..=240.0).text("Max fps"));
+                        ui.add(egui::Slider::new(fovy, 5.0..=100.0).text("Camera FOV"));
+                        ui.color_edit_button_srgba(color);
+                        ui.code(egui::RichText::new(format!("{:#?}", camera_state)).code());
                     });
             },
         );
+
         if self.delay > 0.0 {
             // make frame cap from target fps
             let target_frame_time = 1.0 / self.delay;
@@ -401,15 +273,10 @@ impl State {
             std::thread::sleep(std::time::Duration::from_millis(delay as u64));
         };
 
-        self.gpu_context
-            .queue
-            .submit(std::iter::once(encoder.finish()));
-        
-        self.gpu_context.queue.present(output);
-
-        profiling::finish_frame!();
+        self.renderer.end_frame(frame);
         Ok(())
     }
+
     pub fn window(&self) -> &Window {
         &self.window
     }
