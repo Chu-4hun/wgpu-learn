@@ -8,11 +8,11 @@ use wgpu::{Buffer, Color, RenderPipeline, util::DeviceExt};
 use winit::dpi::PhysicalSize;
 
 use crate::{
-    camera::Camera,
     gpu::{context::GpuContext, pipeline::PipelineBuilder},
     instance::InstanceRaw,
-    model::{DrawModel, INDICES, Model, ModelVertex, Vertex},
+    model::{DrawModel, INDICES, ModelVertex, Vertex},
     renderer::{camera_bind::CameraBinding, frame::Frame},
+    scene::Scene,
     texture::Texture,
 };
 
@@ -38,16 +38,14 @@ pub struct Renderer {
     pub clear_color: Color32,
 }
 pub struct DrawParams<'a> {
-    pub camera: &'a Camera,
-    pub model: &'a Model,
-    pub instance_buffer: &'a wgpu::Buffer,
+    pub scene: &'a Scene,
     pub instance_count: u32,
     pub clear_color: wgpu::Color,
     pub draw_lines: bool,
 }
 
 impl Renderer {
-    pub async fn new(gpu_context: Arc<GpuContext>) -> Self {
+    pub fn new(gpu_context: Arc<GpuContext>) -> Self {
         let shader =
             gpu_context
                 .as_ref()
@@ -144,7 +142,7 @@ impl Renderer {
 
     pub fn draw(&mut self, frame: &mut Frame, params: DrawParams) {
         self.camera_binding
-            .sync(&self.gpu_context.queue, params.camera);
+            .sync(&self.gpu_context.queue, &params.scene.camera);
         let clear_color = Rgba::from(self.clear_color).to_rgba_unmultiplied();
         let render_pass_desc = wgpu::RenderPassDescriptor {
             label: Some("Scene Pass"),
@@ -181,11 +179,11 @@ impl Renderer {
         } else {
             &self.render_pipeline
         });
-        pass.set_vertex_buffer(1, params.instance_buffer.slice(..));
+        pass.set_vertex_buffer(1, params.scene.cubes.buffer().slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         pass.set_bind_group(1, self.camera_binding.bind_group(), &[]);
         pass.draw_model_instanced(
-            params.model,
+            &params.scene.obj_model,
             0..params.instance_count,
             self.camera_binding.bind_group(),
         );
@@ -204,7 +202,9 @@ impl Renderer {
     }
 
     pub(crate) fn update_instances(&self, instance_buffer: &wgpu::Buffer, data: &[InstanceRaw]) {
-        self.gpu_context.queue.write_buffer(instance_buffer, 0, bytemuck::cast_slice(data));
+        self.gpu_context
+            .queue
+            .write_buffer(instance_buffer, 0, bytemuck::cast_slice(data));
     }
 
     pub fn is_zero_sized(&self) -> bool {

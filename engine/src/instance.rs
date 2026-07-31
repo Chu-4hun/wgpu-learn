@@ -1,12 +1,16 @@
-pub(crate) struct Instance {
-    pub(crate) position: cgmath::Vector3<f32>,
-    pub(crate) rotation: cgmath::Quaternion<f32>,
+use wgpu::util::DeviceExt;
+
+use crate::renderer::Renderer;
+
+pub struct Instance {
+    pub position: cgmath::Vector3<f32>,
+    pub rotation: cgmath::Quaternion<f32>,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct InstanceRaw {
-    pub(crate) model: [[f32; 4]; 4],
+pub struct InstanceRaw {
+    pub model: [[f32; 4]; 4],
 }
 impl Instance {
     pub fn to_raw(&self) -> InstanceRaw {
@@ -35,7 +39,7 @@ impl InstanceRaw {
                     // be using 2, 3, and 4, for Vertex. We'll start at slot 5, not conflict with them later
                     shader_location: 5,
                     format: wgpu::VertexFormat::Float32x4,
-                },   
+                },
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
                     shader_location: 6,
@@ -53,5 +57,53 @@ impl InstanceRaw {
                 },
             ],
         }
+    }
+}
+
+pub struct InstanceSet {
+    instances: Vec<Instance>,
+    buffer: wgpu::Buffer,
+    dirty: bool,
+}
+
+impl InstanceSet {
+    pub fn new(device: &wgpu::Device, instances: Vec<Instance>) -> Self {
+        let data: Vec<InstanceRaw> = instances.iter().map(Instance::to_raw).collect();
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&data),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
+        Self {
+            instances,
+            buffer,
+            dirty: false,
+        }
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Instance> {
+        self.dirty = true;
+        self.instances.iter_mut()
+    }
+
+    pub fn len(&self) -> u32 {
+        self.instances.len() as u32
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.instances.len() == 0
+    }
+
+    pub fn buffer(&self) -> &wgpu::Buffer {
+        &self.buffer
+    }
+
+    pub fn sync(&mut self, renderer: &Renderer) {
+        if !self.dirty {
+            return;
+        }
+        let data: Vec<InstanceRaw> = self.instances.iter().map(Instance::to_raw).collect();
+        renderer.update_instances(&self.buffer, &data);
+        self.dirty = false;
     }
 }
