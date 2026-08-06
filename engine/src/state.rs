@@ -23,7 +23,7 @@ use crate::{
     asset_manager::AssetManager,
     gpu::context::GpuContext,
     gui::EguiRenderer,
-    renderer::{DrawParams, Renderer},
+    renderer::{DrawBatch, DrawParams, Renderer},
     scene::Scene,
 };
 
@@ -116,9 +116,6 @@ impl State {
         self.renderer.draw(
             &mut frame,
             DrawParams {
-                scene: &self.scene,
-                instance_count: self.scene.cubes.len(),
-
                 draw_lines: self.draw_lines,
                 clear_color: Color {
                     r: 1.0,
@@ -126,6 +123,12 @@ impl State {
                     b: 1.0,
                     a: 1.0,
                 },
+                camera: &self.scene.camera,
+                batches: &[DrawBatch {
+                    model: self.scene.obj_model.as_ref(),
+                    instance_buffer: self.scene.cubes.buffer(),
+                    instance_count: self.scene.cubes.len(),
+                }],
             },
         );
 
