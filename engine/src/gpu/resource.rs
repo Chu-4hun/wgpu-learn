@@ -79,15 +79,15 @@ impl<T: bytemuck::Pod> ShaderResource<T> {
             _data: std::marker::PhantomData,
         }
     }
-    
+
     pub fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
-    
+
     pub fn layout(&self) -> &wgpu::BindGroupLayout {
         &self.layout
     }
-    
+
     pub fn buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }

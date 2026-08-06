@@ -1,6 +1,7 @@
 pub mod asset_manager;
 pub mod camera;
 pub mod camera_controller;
+pub mod components;
 pub mod gpu;
 pub mod gui;
 pub mod instance;
@@ -24,9 +25,6 @@ use winit::{
     keyboard::{KeyCode, PhysicalKey},
     window::{CursorGrabMode, WindowAttributes, WindowId},
 };
-
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-
 enum UserEvent {
     StateReady(State),
 }
@@ -199,7 +197,6 @@ impl ApplicationHandler<UserEvent> for App {
                 let start = Instant::now();
                 let elapsed = (start - self.frame_time).as_secs_f32();
 
-                
                 state.update(elapsed);
                 match state.render(elapsed) {
                     Ok(()) => {}

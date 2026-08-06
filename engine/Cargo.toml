@@ -10,10 +10,13 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
+bevy_ecs.workspace = true
 bytemuck.workspace = true
 cfg-if.workspace = true
 cgmath.workspace = true
 console_error_panic_hook.workspace = true
+
+uuid.workspace = true
 
 futures-lite.workspace = true
 

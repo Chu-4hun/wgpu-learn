@@ -93,7 +93,7 @@ impl GpuContext {
                 .configure(&self.device, &self.config.read().unwrap());
         }
     }
-    
+
     pub fn config(&self) -> std::sync::RwLockReadGuard<'_, wgpu::SurfaceConfiguration> {
         self.config.read().unwrap()
     }

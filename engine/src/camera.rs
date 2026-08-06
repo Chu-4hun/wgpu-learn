@@ -6,7 +6,6 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.0, 1.0,
 );
 
-
 #[derive(Debug)]
 pub struct Camera {
     pub eye: cgmath::Point3<f32>,
@@ -29,7 +28,7 @@ impl Camera {
         OPENGL_TO_WGPU_MATRIX * proj * view
     }
 
-    pub fn as_uniform(&self)-> CameraUniform{
+    pub fn as_uniform(&self) -> CameraUniform {
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.set_view_proj(self);
         camera_uniform

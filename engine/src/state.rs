@@ -23,7 +23,7 @@ use crate::{
     asset_manager::AssetManager,
     gpu::context::GpuContext,
     gui::EguiRenderer,
-    renderer::{DrawBatch, DrawParams, Renderer},
+    renderer::{DrawParams, Renderer},
     scene::Scene,
 };
 
@@ -102,7 +102,7 @@ impl State {
 
     #[profiling::function]
     pub fn update(&mut self, delta_time: f32) {
-        self.scene.update(delta_time, &self.renderer);
+        self.scene.update(delta_time);
     }
 
     #[profiling::function]
@@ -112,6 +112,8 @@ impl State {
         }
 
         let mut frame = self.renderer.begin_frame().unwrap();
+
+        let batches = self.scene.draw_batches();
 
         self.renderer.draw(
             &mut frame,
@@ -124,11 +126,7 @@ impl State {
                     a: 1.0,
                 },
                 camera: &self.scene.camera,
-                batches: &[DrawBatch {
-                    model: self.scene.obj_model.as_ref(),
-                    instance_buffer: self.scene.cubes.buffer(),
-                    instance_count: self.scene.cubes.len(),
-                }],
+                batches: &batches,
             },
         );
 

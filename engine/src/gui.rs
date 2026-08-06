@@ -2,9 +2,9 @@ use egui::{Context, Visuals};
 use egui_wgpu::ScreenDescriptor;
 use egui_wgpu::{Renderer, RendererOptions};
 
+use egui_winit::State;
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::winit::window::Window;
-use egui_winit::State;
 use wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
 
 pub struct EguiRenderer {
@@ -33,14 +33,7 @@ impl EguiRenderer {
 
         let egui_context_clone = egui_context.clone();
         let viewport_id = egui_context_clone.viewport_id();
-        let egui_state = State::new(
-            egui_context_clone,
-            viewport_id,
-            &window,
-            None,
-            None,
-            None,
-        );
+        let egui_state = State::new(egui_context_clone, viewport_id, &window, None, None, None);
 
         // egui_state.set_pixels_per_point(window.scale_factor() as f32);
         let egui_renderer = Renderer::new(

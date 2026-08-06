@@ -1,5 +1,6 @@
 pub mod camera_bind;
 pub mod frame;
+pub mod instance_buffers_pool;
 
 use std::sync::Arc;
 
@@ -12,8 +13,9 @@ use crate::{
     gpu::{context::GpuContext, pipeline::PipelineBuilder},
     instance::InstanceRaw,
     model::{DrawModel, INDICES, Model, ModelVertex, Vertex},
-    renderer::{camera_bind::CameraBinding, frame::Frame},
-    scene::Scene,
+    renderer::{
+        camera_bind::CameraBinding, frame::Frame, instance_buffers_pool::InstanceBufferPool,
+    },
     texture::Texture,
 };
 
@@ -33,20 +35,20 @@ pub struct Renderer {
     render_pipeline: RenderPipeline,
     line_pipeline: RenderPipeline,
     index_buffer: Buffer,
-    texture_layout: wgpu::BindGroupLayout,
+    _texture_layout: wgpu::BindGroupLayout,
     camera_binding: CameraBinding,
 
     pub clear_color: Color32,
+    instance_pool: InstanceBufferPool,
 }
-pub struct DrawBatch<'a> {
-    pub model: &'a Model,
-    pub instance_buffer: &'a wgpu::Buffer,
-    pub instance_count: u32,
+pub struct DrawBatch {
+    pub model: Arc<Model>,
+    pub instances: Vec<InstanceRaw>,
 }
 
 pub struct DrawParams<'a> {
     pub camera: &'a Camera,
-    pub batches: &'a [DrawBatch<'a>],
+    pub batches: &'a [DrawBatch],
     pub clear_color: wgpu::Color,
     pub draw_lines: bool,
 }
@@ -66,7 +68,7 @@ impl Renderer {
 
         let depth_texture = Texture::create_depth_texture(&gpu_context, "depth_texture");
 
-        let texture_layout: wgpu::BindGroupLayout =
+        let _texture_layout: wgpu::BindGroupLayout =
             Texture::create_bind_group_layout(&gpu_context.device);
 
         let render_pipeline =
@@ -74,7 +76,7 @@ impl Renderer {
                 .with_label("Render Pipeline")
                 .with_shader(&shader)
                 .with_entry_points("vs_main", "fs_main")
-                .add_layout(&texture_layout)
+                .add_layout(&_texture_layout)
                 .add_layout(camera_binding.layout()) // <- same call as before, just via the binding
                 .add_vertex_layout(Some(ModelVertex::desc()))
                 .add_vertex_layout(Some(InstanceRaw::desc()))
@@ -86,7 +88,7 @@ impl Renderer {
                 .with_label("Wireframe Render Pipeline")
                 .with_shader(&shader)
                 .with_entry_points("vs_main", "fs_main")
-                .add_layout(&texture_layout)
+                .add_layout(&_texture_layout)
                 .add_layout(camera_binding.layout())
                 .add_vertex_layout(Some(ModelVertex::desc()))
                 .add_vertex_layout(Some(InstanceRaw::desc()))
@@ -111,8 +113,9 @@ impl Renderer {
             line_pipeline,
             index_buffer,
             camera_binding,
-            texture_layout,
+            _texture_layout,
             clear_color: Color32::from_rgb(0, 50, 20),
+            instance_pool: InstanceBufferPool::default(),
         }
     }
 
@@ -149,7 +152,7 @@ impl Renderer {
 
     pub fn draw(&mut self, frame: &mut Frame, params: DrawParams) {
         self.camera_binding
-            .sync(&self.gpu_context.queue, &params.camera);
+            .sync(&self.gpu_context.queue, params.camera);
         let clear_color = Rgba::from(self.clear_color).to_rgba_unmultiplied();
         let render_pass_desc = wgpu::RenderPassDescriptor {
             label: Some("Scene Pass"),
@@ -190,11 +193,17 @@ impl Renderer {
         pass.set_bind_group(1, self.camera_binding.bind_group(), &[]);
 
         params.batches.iter().for_each(|batch| {
-            pass.set_vertex_buffer(1, batch.instance_buffer.slice(..));
-
+            let buf = self.instance_pool.upload(
+                &self.gpu_context.device,
+                &self.gpu_context.queue,
+                &batch.model,
+                &batch.instances,
+            );
+            pass.set_vertex_buffer(1, buf.slice(..));
+            pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             pass.draw_model_instanced(
                 &batch.model,
-                0..batch.instance_count,
+                0..batch.instances.len() as u32,
                 self.camera_binding.bind_group(),
             );
         });
@@ -210,12 +219,6 @@ impl Renderer {
     pub fn resize(&mut self, new_size: &PhysicalSize<u32>) {
         self.gpu_context.resize(new_size);
         self.depth_texture = Texture::create_depth_texture(&self.gpu_context, "depth_texture");
-    }
-
-    pub(crate) fn update_instances(&self, instance_buffer: &wgpu::Buffer, data: &[InstanceRaw]) {
-        self.gpu_context
-            .queue
-            .write_buffer(instance_buffer, 0, bytemuck::cast_slice(data));
     }
 
     pub fn is_zero_sized(&self) -> bool {

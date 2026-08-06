@@ -5,10 +5,7 @@ use std::{
 };
 
 use crate::{
-    asset_manager::obj_import::ObjLoader,
-    gpu::context::GpuContext,
-    model::Model,
-    texture::Texture,
+    asset_manager::obj_import::ObjLoader, gpu::context::GpuContext, model::Model, texture::Texture,
 };
 
 pub(crate) mod io;
@@ -44,7 +41,7 @@ impl AssetManager {
 
         Ok(model)
     }
-    
+
     pub fn texture_layout(&self) -> &wgpu::BindGroupLayout {
         &self.texture_layout
     }
